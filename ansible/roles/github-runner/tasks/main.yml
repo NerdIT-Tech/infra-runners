@@ -51,7 +51,7 @@
     cmd: "./svc.sh install runner"
     chdir: "{{ runner_dir }}"
     creates: "{{ runner_dir }}/.service"
-  become: yes
+  become: true
 
 - name: Ensure runner service is enabled and started
   systemd:
@@ -59,4 +59,4 @@
     state: started
     enabled: yes
     daemon_reload: yes
-  become: yes
+  become: true

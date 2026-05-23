@@ -15,7 +15,7 @@
       - ufw
     state: present
     update_cache: yes
-  become: yes
+  become: true
 
 - name: Apply SRE Kernel Tuning
   sysctl:
@@ -24,7 +24,7 @@
     state: present
     reload: yes
   loop: "{{ sysctl_settings | dict2items }}"
-  become: yes
+  become: true
 
 - name: Configure UFW for CI Runners
   ufw:
@@ -35,7 +35,7 @@
   loop:
     - { rule: "allow", port: "22", proto: "tcp" } # Allow SSH
     - { rule: "deny", state: "enabled" }         # Default deny
-  become: yes
+  become: true
   when: ufw_enabled
 
 - name: Setup Node.js Repository (v{{ node_version }})
@@ -62,4 +62,4 @@
       apt:
         name: nodejs
         state: present
-  become: yes
+  become: true
