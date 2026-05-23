@@ -1,11 +1,14 @@
 resource "proxmox_virtual_environment_vm" "runner" {
-  name      = var.runner_name
+  name        = var.runner_name
+  description = "Managed by Terraform - GitHub Actions Runner"
+  tags        = ["gh-runner", "terraform", "iac"]
+  
   vm_id     = var.vmid != 0 ? var.vmid : null
   node_name = var.proxmox_node
   pool_id   = var.pool
 
   clone {
-    vm_id = var.template_vmid # BPG provider prefers ID for cloning
+    vm_id = var.template_vmid
   }
 
   agent {
@@ -14,10 +17,12 @@ resource "proxmox_virtual_environment_vm" "runner" {
 
   cpu {
     cores = var.cores
+    type  = "host" # SRE Tip: Use host CPU type for better performance in nested virtualization
   }
 
   memory {
     dedicated = var.memory_mb
+    floating  = var.memory_mb # Disable ballooning for more predictable CI performance
   }
 
   network_device {
@@ -27,7 +32,7 @@ resource "proxmox_virtual_environment_vm" "runner" {
   disk {
     datastore_id = var.target_storage
     interface    = "scsi0"
-    size         = 32
+    size         = 40 # Increased default size
   }
 
   initialization {
@@ -45,14 +50,8 @@ resource "proxmox_virtual_environment_vm" "runner" {
 
   on_boot = true
 
-  # Wait for guest agent to be ready
-  provisioner "remote-exec" {
-    inline = ["echo 'Runner is up'"]
-    connection {
-      type        = "ssh"
-      user        = "runner"
-      host        = self.ipv4_addresses[1][0] # Adjusting for BPG IP reporting
-      private_key = var.ssh_private_key
-    }
+  lifecycle {
+    # Ensure new runners are created before old ones are destroyed during updates
+    create_before_destroy = true
   }
 }

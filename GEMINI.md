@@ -40,12 +40,19 @@ The project includes a GitHub Actions workflow (`.github/workflows/deploy-runner
 | `GH_RUNNER_PAT` | GitHub PAT with `admin:org_runner` scope |
 | `GH_ORG` | Your GitHub Organization name |
 
-## Security Considerations
+## SRE & High Availability Design
 
-- **Secrets**: The GitHub PAT should never be committed. Use Ansible Vault or environment variables.
-- **Isolation**: Runners are placed in a dedicated Proxmox pool and can be segmented via VLANs in the Proxmox network configuration.
-- **Updates**: Use Ansible to periodically update the runner version and OS packages.
+This infrastructure has been reimagined for maximum resilience and high availability:
+
+-   **Node Spreading**: Runners are automatically distributed across the Proxmox cluster (`var.proxmox_nodes`) using modulo logic to avoid single points of failure.
+-   **Zero-Downtime Updates**: Uses `create_before_destroy` lifecycle policy. Terraform will provision a replacement runner before destroying an old one, ensuring capacity is maintained.
+-   **Safety Interlocks**:
+    -   **Variable Validation**: `runner_count` must be $\ge 1$.
+    -   **Terraform Checks**: A `check` block validates that the plan maintains at least one runner.
+    -   **Orchestration Guardrails**: The `setup-runners.sh` script will abort if it detects zero runners in the state.
+-   **Performance Tuning**: VMs use `host` CPU types for optimized virtualization performance and fixed memory to prevent CI job instability due to ballooning.
+-   **Observability**: VMs are tagged in Proxmox with `gh-runner` and `terraform` for easier management.
 
 ## Scalability
 
-To add more runners, simply update the `runners` map in `terraform/main.tf` and re-run the deployment.
+To scale the runner fleet, simply update the `runner_count` variable in `terraform/variables.tf` (or via `-var="runner_count=5"`). The infrastructure will automatically distribute new instances across your Proxmox cluster.

@@ -98,7 +98,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: self-hosted
     outputs:
-      runner_ips: ${{ steps.output.outputs.runner_ips }}
+      runner_details: ${{ steps.output.outputs.runner_details }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -132,8 +132,8 @@ jobs:
         id: output
         run: |
           cd terraform
-          RUNNER_IPS=$(terraform output -json runner_ips | jq -c .)
-          echo "runner_ips=$RUNNER_IPS" >> $GITHUB_OUTPUT
+          RUNNER_DETAILS=$(terraform output -json runner_details | jq -c .)
+          echo "runner_details=$RUNNER_DETAILS" >> $GITHUB_OUTPUT
 
   configure:
     name: Ansible Configure
@@ -147,32 +147,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Ansible
+      - name: Prepare Inventory
+        env:
+          RUNNER_DETAILS: ${{ needs.apply.outputs.runner_details }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible jq
+          cd ansible
+          echo "[github_runners]" > hosts.ini
+          echo "$RUNNER_DETAILS" | jq -r 'to_entries[] | "\(.key) ansible_host=\(.value.ip) proxmox_node=\(.value.node)"' >> hosts.ini
+          echo "" >> hosts.ini
+          echo "[github_runners:vars]" >> hosts.ini
+          echo "ansible_user=runner" >> hosts.ini
 
       - name: Run Ansible
         env:
-          RUNNER_IPS: ${{ needs.apply.outputs.runner_ips }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           cd ansible
-          
-          # Create inventory from Terraform output
-          echo "[github_runners]" > temporary_hosts.ini
-          echo "$RUNNER_IPS" | jq -r 'to_entries[] | "\(.key) ansible_host=\(.value)"' >> temporary_hosts.ini
-          
-          echo "" >> temporary_hosts.ini
-          echo "[github_runners:vars]" >> temporary_hosts.ini
-          echo "ansible_user=runner" >> temporary_hosts.ini
-          
-          # Handle SSH Key
           echo "$SSH_PRIVATE_KEY" > runner_key
           chmod 600 runner_key
           
+          # SRE Best Practice: Use a pipelined approach for Ansible in CI
           export ANSIBLE_HOST_KEY_CHECKING=False
-          ansible-playbook -i temporary_hosts.ini site.yml \
+          export ANSIBLE_FORCE_COLOR=True
+          
+          ansible-playbook -i hosts.ini site.yml \
             --private-key runner_key \
             --extra-vars "GH_PAT=$GH_PAT GH_ORG=$GH_ORG"
           
