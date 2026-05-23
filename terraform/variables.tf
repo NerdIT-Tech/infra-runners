@@ -26,7 +26,7 @@ variable "ssh_private_key" {
 
 variable "runner_count" {
   type    = number
-  default = 2
+  default = 3
 }
 
 # Default infrastructure settings

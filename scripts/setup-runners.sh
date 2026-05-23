@@ -4,16 +4,24 @@ set -e
 # Load local secrets if they exist
 if [ -f .env ]; then
   echo "Loading secrets from .env..."
+  # Cleanly source the file and export everything
   set -a
   source .env
   set +a
+  
+  # Ensure all TF_VARs are explicitly exported for the current shell
+  export $(grep '^TF_VAR_' .env | cut -d= -f1)
+  export GH_PAT GH_ORG
 fi
 
 # 1. Terraform
-echo "Applying Terraform..."
+echo "Planning Terraform..."
 cd terraform
 terraform init -input=false
-terraform apply -auto-approve -input=false
+terraform plan -out=tfplan -input=false
+
+echo "Applying Terraform..."
+terraform apply -auto-approve tfplan
 
 # 2. Extract IPs from Terraform Output
 # Terraform now captures DHCP IPs via qemu-guest-agent
@@ -40,6 +48,6 @@ chmod 600 runner_key
 export ANSIBLE_HOST_KEY_CHECKING=False
 ansible-playbook -i temporary_hosts.ini site.yml \
   --private-key runner_key \
-  --extra-vars "github_pat=$GITHUB_PAT github_org=$GITHUB_ORG"
+  --extra-vars "GH_PAT=$GH_PAT GH_ORG=$GH_ORG"
 
 rm runner_key

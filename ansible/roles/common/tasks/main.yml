@@ -1,8 +1,17 @@
 ---
+- name: Sledgehammer cleanup of conflicting repository files
+  shell: |
+    rm -f /etc/apt/sources.list.d/nodesource*
+    rm -f /usr/share/keyrings/nodesource*
+    rm -f /etc/apt/keyrings/nodesource*
+    apt-get clean
+    rm -rf /var/lib/apt/lists/*
+  become: yes
+
 - name: Update apt cache
   apt:
     update_cache: yes
-    cache_valid_time: 3600
+  become: yes
 
 - name: Install basic packages
   apt:
@@ -15,4 +24,31 @@
       - libssl-dev
       - libffi-dev
       - python3-pip
+      - ca-certificates
+      - gnupg
     state: present
+
+- name: Install Node.js (v20) for GitHub Action compatibility
+  block:
+    - name: Create directory for NodeSource GPG key
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: Add NodeSource GPG key
+      get_url:
+        url: https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key
+        dest: /etc/apt/keyrings/nodesource.asc
+        mode: '0644'
+
+    - name: Add NodeSource repository
+      apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/nodesource.asc] https://deb.nodesource.com/node_20.x nodistro main"
+        state: present
+        filename: nodesource
+
+    - name: Install nodejs
+      apt:
+        name: nodejs
+        state: present

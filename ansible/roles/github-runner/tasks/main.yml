@@ -26,10 +26,10 @@
 
 - name: Get registration token from GitHub
   uri:
-    url: "https://api.github.com/orgs/{{ github_org }}/actions/runners/registration-token"
+    url: "https://api.github.com/orgs/{{ GH_ORG }}/actions/runners/registration-token"
     method: POST
     headers:
-      Authorization: "token {{ github_pat }}"
+      Authorization: "token {{ GH_PAT }}"
       Accept: "application/vnd.github+json"
     status_code: 201
   register: registration_token_res
@@ -44,15 +44,16 @@
   when: not runner_registered.stat.exists
   no_log: true
 
-- name: Install and start runner service
+- name: Install runner service
   command:
     cmd: "./svc.sh install runner"
     chdir: "{{ runner_dir }}"
     creates: "{{ runner_dir }}/.service"
   become: yes
 
-- name: Start runner service
-  command:
-    cmd: "./svc.sh start"
-    chdir: "{{ runner_dir }}"
-  become: yes
+- name: Ensure runner service is enabled and started
+  systemd:
+    name: "actions.runner.{{ GH_ORG }}.{{ ansible_hostname }}.service"
+    state: started
+    enabled: yes
+    daemon_reload: yes
