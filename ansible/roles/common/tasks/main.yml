@@ -13,6 +13,7 @@
       - ca-certificates
       - gnupg
       - ufw
+      - acl
     state: present
     update_cache: yes
   become: true

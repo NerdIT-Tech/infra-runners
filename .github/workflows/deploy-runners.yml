@@ -26,9 +26,11 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Init
+        env:
+          TF_STATE_CONN: ${{ secrets.TF_STATE_CONN }}
         run: |
           cd terraform
-          terraform init
+          terraform init -backend-config="conn_str=$TF_STATE_CONN"
 
       - name: Terraform Format check
         run: cd terraform && terraform fmt -check
@@ -115,7 +117,9 @@ jobs:
           path: terraform
 
       - name: Terraform Init
-        run: cd terraform && terraform init
+        env:
+          TF_STATE_CONN: ${{ secrets.TF_STATE_CONN }}
+        run: cd terraform && terraform init -backend-config="conn_str=$TF_STATE_CONN"
 
       - name: Terraform Apply
         env:

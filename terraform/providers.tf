@@ -6,12 +6,10 @@ terraform {
     }
   }
 
-  # RECOMMENDED: Use a remote backend for CI/CD consistency.
-  # A simple Postgres instance in your homelab is a great option.
-  # 
-  # backend "pg" {
-  #   conn_str = "postgres://terraform:PASSWORD@YOUR_IP:5432/terraform_state"
-  # }
+  # SRE Best Practice: Use a remote backend for state.
+  # This block is partially configured. Credentials should be provided
+  # via -backend-config="conn_str=..." during 'terraform init'.
+  backend "pg" {}
 }
 
 provider "proxmox" {

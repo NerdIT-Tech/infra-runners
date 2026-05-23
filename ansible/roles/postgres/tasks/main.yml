@@ -16,9 +16,18 @@
     enabled: yes
   become: yes
 
+- name: Get PostgreSQL version
+  command: psql --version
+  register: pg_version_output
+  changed_when: false
+
+- name: Set pg_version variable
+  set_fact:
+    pg_version: "{{ pg_version_output.stdout | regex_search('\\d+') }}"
+
 - name: Configure PostgreSQL to listen on all interfaces
   lineinfile:
-    path: /etc/postgresql/16/main/postgresql.conf
+    path: "/etc/postgresql/{{ pg_version }}/main/postgresql.conf"
     regexp: '^#?listen_addresses\s*='
     line: "listen_addresses = '*'"
   become: yes
@@ -26,8 +35,8 @@
 
 - name: Allow remote connections in pg_hba.conf
   lineinfile:
-    path: /etc/postgresql/16/main/pg_hba.conf
-    line: "host    terraform_state    terraform    0.0.0.0/0    md5"
+    path: "/etc/postgresql/{{ pg_version }}/main/pg_hba.conf"
+    line: "host    terraform_state    terraform    0.0.0.0/0    scram-sha-256"
   become: yes
   notify: restart postgresql
 
