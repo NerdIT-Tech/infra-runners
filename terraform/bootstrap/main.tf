@@ -44,7 +44,7 @@ resource "proxmox_virtual_environment_vm" "db_host" {
   disk {
     datastore_id = var.target_storage
     interface    = "scsi0"
-    size         = 20
+    size         = 40
   }
 
   initialization {
