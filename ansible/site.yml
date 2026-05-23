@@ -6,6 +6,11 @@
   # at least one runner available for the IaC pipeline.
   serial: 1
   
+  # Fail the entire play if any single host fails - better to stop and 
+  # investigate than to break the whole fleet.
+  any_errors_fatal: true
+  max_fail_percentage: 0
+  
   roles:
     - common
     - docker

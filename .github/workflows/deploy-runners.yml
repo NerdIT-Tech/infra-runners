@@ -135,6 +135,12 @@ jobs:
           RUNNER_DETAILS=$(terraform output -json runner_details | jq -c .)
           echo "runner_details=$RUNNER_DETAILS" >> $GITHUB_OUTPUT
 
+      - name: Terraform Failure Summary
+        if: failure()
+        run: |
+          echo "### ❌ Terraform Apply Failed" >> $GITHUB_STEP_SUMMARY
+          echo "The infrastructure state may be inconsistent. Check the Proxmox UI for partially provisioned VMs." >> $GITHUB_STEP_SUMMARY
+
   configure:
     name: Ansible Configure
     needs: apply
@@ -175,3 +181,9 @@ jobs:
             --extra-vars "GH_PAT=$GH_PAT GH_ORG=$GH_ORG"
           
           rm runner_key
+
+      - name: Ansible Failure Summary
+        if: failure()
+        run: |
+          echo "### ❌ Ansible Configuration Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Rollout halted due to 'any_errors_fatal: true'. Remaining runners are untouched." >> $GITHUB_STEP_SUMMARY
