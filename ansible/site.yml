@@ -1,13 +1,15 @@
 ---
+- name: Setup Bootstrap Database
+  hosts: bootstrap_db
+  become: yes
+  roles:
+    - common
+    - postgres
+
 - name: Setup GitHub Runners on Proxmox VMs
   hosts: github_runners
   become: yes
-  # SRE Best Practice: Roll out changes one by one to ensure we always have 
-  # at least one runner available for the IaC pipeline.
   serial: 1
-  
-  # Fail the entire play if any single host fails - better to stop and 
-  # investigate than to break the whole fleet.
   any_errors_fatal: true
   max_fail_percentage: 0
   

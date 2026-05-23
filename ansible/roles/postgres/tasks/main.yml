@@ -1,0 +1,47 @@
+---
+- name: Install PostgreSQL
+  apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Ensure PostgreSQL is running
+  service:
+    name: postgresql
+    state: started
+    enabled: yes
+  become: yes
+
+- name: Configure PostgreSQL to listen on all interfaces
+  lineinfile:
+    path: /etc/postgresql/16/main/postgresql.conf
+    regexp: '^#?listen_addresses\s*='
+    line: "listen_addresses = '*'"
+  become: yes
+  notify: restart postgresql
+
+- name: Allow remote connections in pg_hba.conf
+  lineinfile:
+    path: /etc/postgresql/16/main/pg_hba.conf
+    line: "host    terraform_state    terraform    0.0.0.0/0    md5"
+  become: yes
+  notify: restart postgresql
+
+- name: Create terraform database user
+  postgresql_user:
+    name: terraform
+    password: "{{ tf_db_password }}"
+    role_attr_flags: "CREATEDB"
+  become: yes
+  become_user: postgres
+
+- name: Create terraform_state database
+  postgresql_db:
+    name: terraform_state
+    owner: terraform
+  become: yes
+  become_user: postgres
