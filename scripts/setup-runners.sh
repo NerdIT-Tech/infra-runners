@@ -15,10 +15,13 @@ if [ -f .env ]; then
 fi
 
 # 1. Terraform
-echo "Applying Terraform..."
+echo "Planning Terraform..."
 cd terraform
 terraform init -input=false
-terraform apply -auto-approve -input=false
+terraform plan -out=tfplan -input=false
+
+echo "Applying Terraform..."
+terraform apply -auto-approve tfplan
 
 # 2. Extract IPs from Terraform Output
 # Terraform now captures DHCP IPs via qemu-guest-agent

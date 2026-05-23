@@ -6,28 +6,19 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
-  validate:
-    name: Validate & Plan
-    runs-on: self-hosted # Using the local runner mentioned by the user
+  plan:
+    name: Terraform Plan
+    runs-on: self-hosted
+    outputs:
+      plan_exists: ${{ steps.plan.outputs.plan_exists }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Check Secrets
-        run: |
-          MISSING=""
-          [ -z "${{ secrets.PROXMOX_API_URL }}" ] && MISSING="$MISSING PROXMOX_API_URL"
-          [ -z "${{ secrets.PROXMOX_USER }}" ] && MISSING="$MISSING PROXMOX_USER"
-          [ -z "${{ secrets.PROXMOX_PASSWORD }}" ] && MISSING="$MISSING PROXMOX_PASSWORD"
-          [ -z "${{ secrets.SSH_PUBLIC_KEY }}" ] && MISSING="$MISSING SSH_PUBLIC_KEY"
-          [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ] && MISSING="$MISSING SSH_PRIVATE_KEY"
-          
-          if [ ! -z "$MISSING" ]; then
-            echo "::error::The following secrets are missing or empty: $MISSING"
-            echo "::notice::GitHub Secrets are NOT available to Pull Requests from forks for security reasons. If this is a fork, you must run the workflow from a branch in the main repository or use a local environment."
-            exit 1
-          fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -35,7 +26,9 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Init
-        run: cd terraform && terraform init
+        run: |
+          cd terraform
+          terraform init
 
       - name: Terraform Format check
         run: cd terraform && terraform fmt -check
@@ -45,32 +38,31 @@ jobs:
 
       - name: Terraform Plan
         id: plan
+        env:
+          TF_VAR_pm_api_url: ${{ secrets.PROXMOX_API_URL }}
+          TF_VAR_pm_user: ${{ secrets.PROXMOX_USER }}
+          TF_VAR_pm_password: ${{ secrets.PROXMOX_PASSWORD }}
+          TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+          TF_VAR_ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           cd terraform
-          # Run plan and capture all output (stdout + stderr)
-          terraform plan -no-color \
-            -var="pm_api_url=${{ secrets.PROXMOX_API_URL }}" \
-            -var="pm_user=${{ secrets.PROXMOX_USER }}" \
-            -var="pm_password=${{ secrets.PROXMOX_PASSWORD }}" \
-            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
-            -var="ssh_private_key=${{ secrets.SSH_PRIVATE_KEY }}" \
-            -out=tfplan > tfplan_raw.txt 2>&1 || export PLAN_FAILED=true
+          terraform plan -no-color -out=tfplan > plan_output.txt
+          echo "plan_exists=true" >> $GITHUB_OUTPUT
           
-          if [ -f tfplan ]; then
-            terraform show -no-color tfplan > plan_output.txt
-          else
-            cat tfplan_raw.txt > plan_output.txt
-          fi
-          
-          # Use a more unique delimiter for multiline strings
+          # Prepare plan for PR comment
           echo "PLAN<<PLAN_EOF" >> $GITHUB_ENV
-          cat plan_output.txt >> $GITHUB_ENV
+          terraform show -no-color tfplan >> $GITHUB_ENV
           echo "PLAN_EOF" >> $GITHUB_ENV
-          
-          if [ "$PLAN_FAILED" = "true" ]; then
-            exit 1
-          fi
-        continue-on-error: true
+
+      - name: Upload Plan & State
+        uses: actions/upload-artifact@v4
+        with:
+          name: tf-artifacts-${{ github.sha }}
+          path: |
+            terraform/tfplan
+            terraform/.terraform.lock.hcl
+            terraform/terraform.tfstate
+          retention-days: 1
 
       - name: Post Plan to PR
         uses: actions/github-script@v7
@@ -81,10 +73,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const plan = process.env.PLAN || 'No plan output captured.';
-            const output = `#### Terraform Format and Style 🖌
-            #### Terraform Initialization ⚙️
-            #### Terraform Validation 🤖
-            #### Terraform Plan 📖
+            const output = `#### Terraform Plan 📖
             
             <details><summary>Show Plan</summary>
             
@@ -103,14 +92,13 @@ jobs:
               body: output
             })
 
-  deploy:
-    name: Apply & Configure
-    needs: validate
+  apply:
+    name: Terraform Apply
+    needs: plan
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: self-hosted
-    env:
-      GH_PAT: ${{ secrets.GH_RUNNER_PAT }}
-      GH_ORG: ${{ secrets.GH_ORG }}
+    outputs:
+      runner_ips: ${{ steps.output.outputs.runner_ips }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -120,18 +108,72 @@ jobs:
         with:
           terraform_wrapper: false
 
-      - name: Setup Ansible
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible jq
+      - name: Download Plan & State
+        uses: actions/download-artifact@v4
+        with:
+          name: tf-artifacts-${{ github.sha }}
+          path: terraform
 
-      - name: Run Deployment Script
-        run: |
-          chmod +x scripts/setup-runners.sh
-          ./scripts/setup-runners.sh
+      - name: Terraform Init
+        run: cd terraform && terraform init
+
+      - name: Terraform Apply
         env:
           TF_VAR_pm_api_url: ${{ secrets.PROXMOX_API_URL }}
           TF_VAR_pm_user: ${{ secrets.PROXMOX_USER }}
           TF_VAR_pm_password: ${{ secrets.PROXMOX_PASSWORD }}
           TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
           TF_VAR_ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          cd terraform
+          terraform apply -auto-approve tfplan
+
+      - name: Capture Outputs
+        id: output
+        run: |
+          cd terraform
+          RUNNER_IPS=$(terraform output -json runner_ips | jq -c .)
+          echo "runner_ips=$RUNNER_IPS" >> $GITHUB_OUTPUT
+
+  configure:
+    name: Ansible Configure
+    needs: apply
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+    env:
+      GH_PAT: ${{ secrets.GH_RUNNER_PAT }}
+      GH_ORG: ${{ secrets.GH_ORG }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible jq
+
+      - name: Run Ansible
+        env:
+          RUNNER_IPS: ${{ needs.apply.outputs.runner_ips }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          cd ansible
+          
+          # Create inventory from Terraform output
+          echo "[github_runners]" > temporary_hosts.ini
+          echo "$RUNNER_IPS" | jq -r 'to_entries[] | "\(.key) ansible_host=\(.value)"' >> temporary_hosts.ini
+          
+          echo "" >> temporary_hosts.ini
+          echo "[github_runners:vars]" >> temporary_hosts.ini
+          echo "ansible_user=runner" >> temporary_hosts.ini
+          
+          # Handle SSH Key
+          echo "$SSH_PRIVATE_KEY" > runner_key
+          chmod 600 runner_key
+          
+          export ANSIBLE_HOST_KEY_CHECKING=False
+          ansible-playbook -i temporary_hosts.ini site.yml \
+            --private-key runner_key \
+            --extra-vars "GH_PAT=$GH_PAT GH_ORG=$GH_ORG"
+          
+          rm runner_key
