@@ -26,9 +26,17 @@ jobs:
           terraform_wrapper: false
 
       - name: Terraform Init
+        env:
+          TF_DB_USER: ${{ vars.TF_DB_USER }}
+          TF_DB_PASSWORD: ${{ secrets.TF_DB_PASSWORD }}
+          TF_DB_HOST: ${{ vars.TF_DB_HOST }}
+          TF_DB_PORT: ${{ vars.TF_DB_PORT }}
+          TF_DB_NAME: ${{ vars.TF_DB_NAME }}
+          TF_STATE_CONN_VAR: ${{ vars.TF_STATE_CONN }}
         run: |
           cd terraform
-          terraform init
+          export TF_STATE_CONN=$(echo $TF_STATE_CONN_VAR | envsubst)
+          terraform init -backend-config="conn_str=$TF_STATE_CONN"
 
       - name: Terraform Format check
         run: cd terraform && terraform fmt -check
@@ -98,7 +106,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: self-hosted
     outputs:
-      runner_ips: ${{ steps.output.outputs.runner_ips }}
+      runner_details: ${{ steps.output.outputs.runner_details }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -115,7 +123,17 @@ jobs:
           path: terraform
 
       - name: Terraform Init
-        run: cd terraform && terraform init
+        env:
+          POSTGRES_USER: ${{ vars.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_HOST: ${{ vars.POSTGRES_HOST }}
+          POSTGRES_PORT: ${{ vars.POSTGRES_PORT }}
+          POSTGRES_DATABASE: ${{ vars.POSTGRES_DATABASE }}
+          TF_STATE_CONN_VAR: ${{ vars.TF_STATE_CONN }}
+        run: |
+          cd terraform
+          export TF_STATE_CONN=$(echo $TF_STATE_CONN_VAR | envsubst)
+          terraform init -backend-config="conn_str=$TF_STATE_CONN"
 
       - name: Terraform Apply
         env:
@@ -132,8 +150,14 @@ jobs:
         id: output
         run: |
           cd terraform
-          RUNNER_IPS=$(terraform output -json runner_ips | jq -c .)
-          echo "runner_ips=$RUNNER_IPS" >> $GITHUB_OUTPUT
+          RUNNER_DETAILS=$(terraform output -json runner_details | jq -c .)
+          echo "runner_details=$RUNNER_DETAILS" >> $GITHUB_OUTPUT
+
+      - name: Terraform Failure Summary
+        if: failure()
+        run: |
+          echo "### ❌ Terraform Apply Failed" >> $GITHUB_STEP_SUMMARY
+          echo "The infrastructure state may be inconsistent. Check the Proxmox UI for partially provisioned VMs." >> $GITHUB_STEP_SUMMARY
 
   configure:
     name: Ansible Configure
@@ -143,37 +167,46 @@ jobs:
     env:
       GH_PAT: ${{ secrets.GH_RUNNER_PAT }}
       GH_ORG: ${{ secrets.GH_ORG }}
+      TF_DB_NAME: ${{ vars.POSTGRES_DATABASE }}
+      TF_DB_USER: ${{ vars.POSTGRES_USER }}
+      TF_DB_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      TF_DB_PORT: ${{ vars.POSTGRES_PORT }}
+      TF_DB_SCHEMA: "terraform"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Ansible
+      - name: Prepare Inventory
+        env:
+          RUNNER_DETAILS: ${{ needs.apply.outputs.runner_details }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ansible jq
+          cd ansible
+          echo "[github_runners]" > hosts.ini
+          echo "$RUNNER_DETAILS" | jq -r 'to_entries[] | "\(.key) ansible_host=\(.value.ip) proxmox_node=\(.value.node)"' >> hosts.ini
+          echo "" >> hosts.ini
+          echo "[github_runners:vars]" >> hosts.ini
+          echo "ansible_user=runner" >> hosts.ini
 
       - name: Run Ansible
         env:
-          RUNNER_IPS: ${{ needs.apply.outputs.runner_ips }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           cd ansible
-          
-          # Create inventory from Terraform output
-          echo "[github_runners]" > temporary_hosts.ini
-          echo "$RUNNER_IPS" | jq -r 'to_entries[] | "\(.key) ansible_host=\(.value)"' >> temporary_hosts.ini
-          
-          echo "" >> temporary_hosts.ini
-          echo "[github_runners:vars]" >> temporary_hosts.ini
-          echo "ansible_user=runner" >> temporary_hosts.ini
-          
-          # Handle SSH Key
           echo "$SSH_PRIVATE_KEY" > runner_key
           chmod 600 runner_key
           
+          # SRE Best Practice: Use a pipelined approach for Ansible in CI
           export ANSIBLE_HOST_KEY_CHECKING=False
-          ansible-playbook -i temporary_hosts.ini site.yml \
+          export ANSIBLE_FORCE_COLOR=True
+          
+          ansible-playbook -i hosts.ini site.yml \
             --private-key runner_key \
-            --extra-vars "GH_PAT=$GH_PAT GH_ORG=$GH_ORG"
+            --extra-vars "GH_PAT=$GH_PAT GH_ORG=$GH_ORG tf_db_name=$TF_DB_NAME tf_db_user=$TF_DB_USER tf_db_password=$TF_DB_PASSWORD tf_db_port=$TF_DB_PORT tf_db_schema=$TF_DB_SCHEMA"
           
           rm runner_key
+
+      - name: Ansible Failure Summary
+        if: failure()
+        run: |
+          echo "### ❌ Ansible Configuration Failed" >> $GITHUB_STEP_SUMMARY
+          echo "Rollout halted due to 'any_errors_fatal: true'. Remaining runners are untouched." >> $GITHUB_STEP_SUMMARY
