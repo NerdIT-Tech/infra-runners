@@ -10,10 +10,10 @@ locals {
 
 module "gh_runners" {
   source = "./modules/proxmox-runner"
-  count  = length(locals.runner_configs)
+  count  = length(local.runner_configs)
 
-  runner_name     = locals.runner_configs[count.index].name
-  proxmox_node    = locals.runner_configs[count.index].node
+  runner_name     = local.runner_configs[count.index].name
+  proxmox_node    = local.runner_configs[count.index].node
   template_vmid   = var.template_vmid
   pool            = var.pool
   target_storage  = var.target_storage
