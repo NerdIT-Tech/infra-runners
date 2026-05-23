@@ -6,15 +6,15 @@
       - postgresql-contrib
       - python3-psycopg2
     state: present
-    update_cache: yes
-  become: yes
+    update_cache: true
+  become: true
 
 - name: Ensure PostgreSQL is running
   service:
     name: postgresql
     state: started
-    enabled: yes
-  become: yes
+    enabled: true
+  become: true
 
 - name: Get PostgreSQL version
   command: psql --version
@@ -30,27 +30,59 @@
     path: "/etc/postgresql/{{ pg_version }}/main/postgresql.conf"
     regexp: '^#?listen_addresses\s*='
     line: "listen_addresses = '*'"
-  become: yes
+  become: true
   notify: restart postgresql
 
 - name: Allow remote connections in pg_hba.conf
   lineinfile:
     path: "/etc/postgresql/{{ pg_version }}/main/pg_hba.conf"
-    line: "host    terraform_state    terraform    0.0.0.0/0    scram-sha-256"
-  become: yes
+    regexp: '^host\s+{{ tf_db_name | regex_escape }}\s+{{ tf_db_user | regex_escape }}'
+    line: "host    {{ tf_db_name }}    {{ tf_db_user }}    0.0.0.0/0    scram-sha-256"
+  become: true
   notify: restart postgresql
 
-- name: Create terraform database user
+- name: Allow PostgreSQL traffic in UFW
+  ufw:
+    rule: allow
+    port: '{{ tf_db_port | default(5432) }}'
+    proto: tcp
+  become: true
+  when: ufw_enabled | default(true)
+
+- name: Force PostgreSQL restart to apply all changes
+  service:
+    name: postgresql
+    state: restarted
+  become: true
+
+- name: Create {{ tf_db_user }} database user
   postgresql_user:
-    name: terraform
+    name: "{{ tf_db_user }}"
     password: "{{ tf_db_password }}"
     role_attr_flags: "CREATEDB"
-  become: yes
+  become: true
   become_user: postgres
 
-- name: Create terraform_state database
+- name: Create {{ tf_db_name }} database
   postgresql_db:
-    name: terraform_state
-    owner: terraform
-  become: yes
+    name: "{{ tf_db_name }}"
+    owner: "{{ tf_db_user }}"
+  become: true
+  become_user: postgres
+
+- name: Grant connect privilege to {{ tf_db_user }} user
+  postgresql_privs:
+    db: "{{ tf_db_name }}"
+    role: "{{ tf_db_user }}"
+    privs: CONNECT
+    type: database
+  become: true
+  become_user: postgres
+
+- name: Create terraform schema
+  postgresql_schema:
+    db: "{{ tf_db_name }}"
+    name: "{{ tf_db_schema }}"
+    owner: "{{ tf_db_user }}"
+  become: true
   become_user: postgres

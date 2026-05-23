@@ -6,9 +6,6 @@ terraform {
     }
   }
 
-  # SRE Best Practice: Use a remote backend for state.
-  # This block is partially configured. Credentials should be provided
-  # via -backend-config="conn_str=..." during 'terraform init'.
   backend "pg" {}
 }
 

@@ -54,3 +54,4 @@ variable "target_storage" {
   type    = string
   default = "local-lvm"
 }
+

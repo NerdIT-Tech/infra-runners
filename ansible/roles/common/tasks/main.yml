@@ -27,15 +27,22 @@
   loop: "{{ sysctl_settings | dict2items }}"
   become: true
 
-- name: Configure UFW for CI Runners
+- name: Allow SSH in UFW
   ufw:
-    rule: "{{ item.rule }}"
-    port: "{{ item.port | default(omit) }}"
-    proto: "{{ item.proto | default(omit) }}"
-    state: "{{ item.state | default('enabled') }}"
+    rule: allow
+    port: "22"
+    proto: tcp
+  become: true
+  when: ufw_enabled
+
+- name: Set default UFW policies
+  ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+    state: enabled
   loop:
-    - { rule: "allow", port: "22", proto: "tcp" } # Allow SSH
-    - { rule: "deny", state: "enabled" }         # Default deny
+    - { direction: 'incoming', policy: 'deny' }
+    - { direction: 'outgoing', policy: 'allow' }
   become: true
   when: ufw_enabled
 
