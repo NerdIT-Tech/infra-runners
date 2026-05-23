@@ -1,0 +1,8 @@
+---
+- name: Setup GitHub Runners on Proxmox VMs
+  hosts: github_runners
+  become: yes
+  roles:
+    - common
+    - docker
+    - github-runner

@@ -1,0 +1,7 @@
+
+# Secrets
+*.env
+*.tfvars
+ansible/runner_key
+*.tfstate*
+*.lock.hcl

@@ -1,0 +1,32 @@
+{
+    "name": "infra-runners-dev",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+    "features": {
+        "./features/xdg-utils": {},
+        "./features/gemini-persistence": {},
+        "./features/podman-remote": {},
+        "ghcr.io/devcontainers/features/terraform:1": {},
+        "ghcr.io/devcontainers-extra/features/ansible:2": {},
+        "ghcr.io/devcontainers/features/git:1": {},
+        "ghcr.io/devcontainers/features/github-cli:1": {},
+        "ghcr.io/devcontainers/features/powershell:2": {},
+        "ghcr.io/stu-bell/devcontainer-features/gemini-cli:0": {},
+        "ghcr.io/guiyomh/features/just:0": {}
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "hashicorp.terraform",
+                "redhat.ansible",
+                "github.vscode-github-actions",
+                "ms-vscode.powershell",
+                "eamodio.gitlens",
+                "redhat.vscode-yaml"
+            ]
+        }
+    },
+    "remoteUser": "vscode",
+    "runArgs": [
+        "--userns=keep-id"
+    ]
+}

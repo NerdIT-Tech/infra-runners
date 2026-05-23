@@ -1,0 +1,105 @@
+name: Deploy Proxmox GitHub Runners
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    name: Validate & Plan
+    runs-on: self-hosted # Using the local runner mentioned by the user
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: cd terraform && terraform init
+
+      - name: Terraform Format check
+        run: cd terraform && terraform fmt -check
+
+      - name: Terraform Validate
+        run: cd terraform && terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          cd terraform
+          terraform plan -no-color \
+            -var="pm_api_url=${{ secrets.PROXMOX_API_URL }}" \
+            -var="pm_user=${{ secrets.PROXMOX_USER }}" \
+            -var="pm_password=${{ secrets.PROXMOX_PASSWORD }}" \
+            -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
+            -var="ssh_private_key=${{ secrets.SSH_PRIVATE_KEY }}" \
+            -out=tfplan
+          
+          # Capture the human-readable plan for the PR comment
+          PLAN_OUTPUT=$(terraform show -no-color tfplan)
+          echo "PLAN<<EOF" >> $GITHUB_ENV
+          echo "$PLAN_OUTPUT" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        continue-on-error: true
+
+      - name: Post Plan to PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `#### Terraform Format and Style 🖌
+            #### Terraform Initialization ⚙️
+            #### Terraform Validation 🤖
+            #### Terraform Plan 📖
+            
+            <details><summary>Show Plan</summary>
+            
+            \`\`\`hcl
+            ${process.env.PLAN}
+            \`\`\`
+            
+            </details>
+            
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+  deploy:
+    name: Apply & Configure
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: self-hosted
+    env:
+      GITHUB_PAT: ${{ secrets.GH_RUNNER_PAT }}
+      GITHUB_ORG: ${{ secrets.GH_ORG }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Setup Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ansible jq
+
+      - name: Run Deployment Script
+        run: |
+          chmod +x scripts/setup-runners.sh
+          ./scripts/setup-runners.sh
+        env:
+          TF_VAR_pm_api_url: ${{ secrets.PROXMOX_API_URL }}
+          TF_VAR_pm_user: ${{ secrets.PROXMOX_USER }}
+          TF_VAR_pm_password: ${{ secrets.PROXMOX_PASSWORD }}
+          TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
+          TF_VAR_ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}

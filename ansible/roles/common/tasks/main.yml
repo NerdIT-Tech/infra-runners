@@ -1,0 +1,18 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install basic packages
+  apt:
+    name:
+      - curl
+      - git
+      - jq
+      - unzip
+      - build-essential
+      - libssl-dev
+      - libffi-dev
+      - python3-pip
+    state: present

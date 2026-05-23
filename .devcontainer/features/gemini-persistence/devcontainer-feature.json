@@ -1,0 +1,16 @@
+{
+    "id": "gemini-persistence",
+    "version": "1.0.0",
+    "name": "Gemini CLI Persistence",
+    "description": "Configures a persistent volume for Gemini CLI sessions, memory, and temporary data.",
+    "mounts": [
+        {
+            "source": "gemini-data",
+            "target": "/home/vscode/.gemini",
+            "type": "volume"
+        }
+    ],
+    "onCreateCommand": [
+        "/usr/local/share/github-michaeldcanady/devcontainer-features/gemini-persistence/onCreate.sh"
+    ]
+}

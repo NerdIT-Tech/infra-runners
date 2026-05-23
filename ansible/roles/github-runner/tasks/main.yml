@@ -1,0 +1,58 @@
+---
+- name: Create runner directory
+  file:
+    path: "{{ runner_dir }}"
+    state: directory
+    owner: runner
+    group: runner
+
+- name: Check if runner is already installed
+  stat:
+    path: "{{ runner_dir }}/config.sh"
+  register: runner_installed
+
+- name: Download and extract runner
+  become_user: runner
+  unarchive:
+    src: "https://github.com/actions/runner/releases/download/v{{ runner_version }}/actions-runner-linux-x64-{{ runner_version }}.tar.gz"
+    dest: "{{ runner_dir }}"
+    remote_src: yes
+  when: not runner_installed.stat.exists
+
+- name: Check if runner is registered
+  stat:
+    path: "{{ runner_dir }}/.runner"
+  register: runner_registered
+
+- name: Get registration token from GitHub
+  uri:
+    url: "https://api.github.com/orgs/{{ github_org }}/actions/runners/registration-token"
+    method: POST
+    headers:
+      Authorization: "token {{ github_pat }}"
+      Accept: "application/vnd.github+json"
+    status_code: 201
+  register: registration_token_res
+  when: not runner_registered.stat.exists
+  no_log: true
+
+- name: Configure runner
+  become_user: runner
+  command:
+    cmd: "./config.sh --url {{ github_url }} --token {{ registration_token_res.json.token }} --name {{ ansible_hostname }} --unattended --replace"
+    chdir: "{{ runner_dir }}"
+  when: not runner_registered.stat.exists
+  no_log: true
+
+- name: Install and start runner service
+  command:
+    cmd: "./svc.sh install runner"
+    chdir: "{{ runner_dir }}"
+    creates: "{{ runner_dir }}/.service"
+  become: yes
+
+- name: Start runner service
+  command:
+    cmd: "./svc.sh start"
+    chdir: "{{ runner_dir }}"
+  become: yes
