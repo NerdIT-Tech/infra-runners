@@ -16,6 +16,8 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - name: Terraform Init
         run: cd terraform && terraform init
@@ -30,27 +32,40 @@ jobs:
         id: plan
         run: |
           cd terraform
+          # Run plan and capture all output (stdout + stderr)
           terraform plan -no-color \
             -var="pm_api_url=${{ secrets.PROXMOX_API_URL }}" \
             -var="pm_user=${{ secrets.PROXMOX_USER }}" \
             -var="pm_password=${{ secrets.PROXMOX_PASSWORD }}" \
             -var="ssh_public_key=${{ secrets.SSH_PUBLIC_KEY }}" \
             -var="ssh_private_key=${{ secrets.SSH_PRIVATE_KEY }}" \
-            -out=tfplan
+            -out=tfplan > tfplan_raw.txt 2>&1 || export PLAN_FAILED=true
           
-          # Capture the human-readable plan for the PR comment
-          PLAN_OUTPUT=$(terraform show -no-color tfplan)
-          echo "PLAN<<EOF" >> $GITHUB_ENV
-          echo "$PLAN_OUTPUT" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          if [ -f tfplan ]; then
+            terraform show -no-color tfplan > plan_output.txt
+          else
+            cat tfplan_raw.txt > plan_output.txt
+          fi
+          
+          # Use a more unique delimiter for multiline strings
+          echo "PLAN<<PLAN_EOF" >> $GITHUB_ENV
+          cat plan_output.txt >> $GITHUB_ENV
+          echo "PLAN_EOF" >> $GITHUB_ENV
+          
+          if [ "$PLAN_FAILED" = "true" ]; then
+            exit 1
+          fi
         continue-on-error: true
 
       - name: Post Plan to PR
         uses: actions/github-script@v7
         if: github.event_name == 'pull_request'
+        env:
+          PLAN: "${{ env.PLAN }}"
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const plan = process.env.PLAN || 'No plan output captured.';
             const output = `#### Terraform Format and Style 🖌
             #### Terraform Initialization ⚙️
             #### Terraform Validation 🤖
@@ -59,7 +74,7 @@ jobs:
             <details><summary>Show Plan</summary>
             
             \`\`\`hcl
-            ${process.env.PLAN}
+            ${plan}
             \`\`\`
             
             </details>
@@ -87,6 +102,8 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - name: Setup Ansible
         run: |
