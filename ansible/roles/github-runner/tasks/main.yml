@@ -5,44 +5,46 @@
     state: directory
     owner: runner
     group: runner
+    mode: '0755'
 
-- name: Check if runner is already installed
+- name: Check if runner binaries exist
   stat:
     path: "{{ runner_dir }}/config.sh"
-  register: runner_installed
+  register: runner_binaries
 
-- name: Download and extract runner
+- name: Download and extract runner binaries
   become_user: runner
   unarchive:
     src: "https://github.com/actions/runner/releases/download/v{{ runner_version }}/actions-runner-linux-x64-{{ runner_version }}.tar.gz"
     dest: "{{ runner_dir }}"
     remote_src: yes
-  when: not runner_installed.stat.exists
+  when: not runner_binaries.stat.exists
 
-- name: Check if runner is registered
+- name: Check if runner is already registered
   stat:
     path: "{{ runner_dir }}/.runner"
   register: runner_registered
 
-- name: Get registration token from GitHub
-  uri:
-    url: "https://api.github.com/orgs/{{ GH_ORG }}/actions/runners/registration-token"
-    method: POST
-    headers:
-      Authorization: "token {{ GH_PAT }}"
-      Accept: "application/vnd.github+json"
-    status_code: 201
-  register: registration_token_res
-  when: not runner_registered.stat.exists
-  no_log: true
+- name: Register and Setup Runner
+  block:
+    - name: Get registration token from GitHub
+      uri:
+        url: "https://api.github.com/orgs/{{ GH_ORG }}/actions/runners/registration-token"
+        method: POST
+        headers:
+          Authorization: "token {{ GH_PAT }}"
+          Accept: "application/vnd.github+json"
+        status_code: 201
+      register: registration_token_res
+      no_log: true
 
-- name: Configure runner
-  become_user: runner
-  command:
-    cmd: "./config.sh --url {{ github_url }} --token {{ registration_token_res.json.token }} --name {{ ansible_hostname }} --unattended --replace"
-    chdir: "{{ runner_dir }}"
+    - name: Configure runner
+      become_user: runner
+      command:
+        cmd: "./config.sh --url {{ github_url }} --token {{ registration_token_res.json.token }} --name {{ ansible_hostname }} --unattended --replace"
+        chdir: "{{ runner_dir }}"
+      no_log: true
   when: not runner_registered.stat.exists
-  no_log: true
 
 - name: Install runner service
   command:
@@ -57,3 +59,4 @@
     state: started
     enabled: yes
     daemon_reload: yes
+  become: yes

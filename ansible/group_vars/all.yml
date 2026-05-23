@@ -1,0 +1,15 @@
+---
+# SRE Best Practice: Centralize versions and globals
+runner_version: "2.316.1"
+node_version: "20"
+docker_ubuntu_codename: "noble"
+
+# Security Settings
+ssh_hardening: true
+ufw_enabled: true
+
+# System Tuning
+sysctl_settings:
+  fs.file-max: 2097152
+  net.core.somaxconn: 1024
+  vm.swappiness: 10

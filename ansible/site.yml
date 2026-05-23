@@ -2,6 +2,10 @@
 - name: Setup GitHub Runners on Proxmox VMs
   hosts: github_runners
   become: yes
+  # SRE Best Practice: Roll out changes one by one to ensure we always have 
+  # at least one runner available for the IaC pipeline.
+  serial: 1
+  
   roles:
     - common
     - docker
