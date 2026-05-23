@@ -14,6 +14,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check Secrets
+        run: |
+          MISSING=""
+          [ -z "${{ secrets.PROXMOX_API_URL }}" ] && MISSING="$MISSING PROXMOX_API_URL"
+          [ -z "${{ secrets.PROXMOX_USER }}" ] && MISSING="$MISSING PROXMOX_USER"
+          [ -z "${{ secrets.PROXMOX_PASSWORD }}" ] && MISSING="$MISSING PROXMOX_PASSWORD"
+          [ -z "${{ secrets.SSH_PUBLIC_KEY }}" ] && MISSING="$MISSING SSH_PUBLIC_KEY"
+          [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ] && MISSING="$MISSING SSH_PRIVATE_KEY"
+          
+          if [ ! -z "$MISSING" ]; then
+            echo "::error::The following secrets are missing or empty: $MISSING"
+            echo "::notice::GitHub Secrets are NOT available to Pull Requests from forks for security reasons. If this is a fork, you must run the workflow from a branch in the main repository or use a local environment."
+            exit 1
+          fi
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
