@@ -40,7 +40,7 @@
         cmd: "./svc.sh uninstall"
         chdir: "{{ github_runner_dir }}"
       become: true
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Unconfigure runner
       become_user: "{{ github_runner_user }}"
@@ -48,7 +48,7 @@
         cmd: "./config.sh remove --token {{ removal_token }}"
         chdir: "{{ github_runner_dir }}"
       no_log: true
-      ignore_errors: yes
+      ignore_errors: true
 
     - name: Remove runner directory
       file:

@@ -1,0 +1,89 @@
+---
+- name: Create runner directory
+  file:
+    path: "{{ github_runner_dir }}"
+    state: directory
+    owner: "{{ github_runner_user }}"
+    group: "{{ github_runner_group }}"
+    mode: '0755'
+
+- name: Check if runner binaries exist
+  stat:
+    path: "{{ github_runner_dir }}/config.sh"
+  register: runner_binaries
+
+- name: Download and extract runner binaries
+  become_user: "{{ github_runner_user }}"
+  unarchive:
+    src: "https://github.com/actions/runner/releases/download/v{{ github_runner_version }}/actions-runner-{{ github_runner_os }}-{{ github_runner_architecture }}-{{ github_runner_version }}.tar.gz"
+    dest: "{{ github_runner_dir }}"
+    remote_src: yes
+  when: not runner_binaries.stat.exists
+
+- name: Check if runner is already registered
+  stat:
+    path: "{{ github_runner_dir }}/.runner"
+  register: runner_registered
+
+- name: Register and Setup Runner
+  block:
+    - name: Get registration token from GitHub (Org)
+      uri:
+        url: "https://api.github.com/orgs/{{ github_org }}/actions/runners/registration-token"
+        method: POST
+        headers:
+          Authorization: "token {{ github_pat }}"
+          Accept: "application/vnd.github+json"
+        status_code: 201
+      register: registration_token_res_org
+      no_log: true
+      when: github_account_type == "org"
+
+    - name: Get registration token from GitHub (Repo)
+      uri:
+        url: "https://api.github.com/repos/{{ github_org }}/{{ github_repo }}/actions/runners/registration-token"
+        method: POST
+        headers:
+          Authorization: "token {{ github_pat }}"
+          Accept: "application/vnd.github+json"
+        status_code: 201
+      register: registration_token_res_repo
+      no_log: true
+      when: github_account_type == "repo"
+
+    - name: Set registration token fact
+      set_fact:
+        registration_token: "{{ registration_token_res_org.json.token if github_account_type == 'org' else registration_token_res_repo.json.token }}"
+      no_log: true
+
+    - name: Configure runner
+      become_user: "{{ github_runner_user }}"
+      command:
+        cmd: >
+          ./config.sh
+          --url {{ github_url }}
+          --token {{ registration_token }}
+          --name {{ github_runner_name }}
+          --unattended
+          {{ '--replace' if github_runner_replace else '' }}
+          {{ '--ephemeral' if github_runner_ephemeral else '' }}
+          {{ '--labels ' + github_runner_labels | join(',') if github_runner_labels else '' }}
+          {{ github_runner_extra_config_args }}
+        chdir: "{{ github_runner_dir }}"
+      no_log: true
+  when: not runner_registered.stat.exists
+
+- name: Install runner service
+  command:
+    cmd: "./svc.sh install {{ github_runner_user }}"
+    chdir: "{{ github_runner_dir }}"
+    creates: "{{ github_runner_dir }}/.service"
+  become: true
+
+- name: Ensure runner service is enabled and started
+  systemd:
+    name: "actions.runner.{{ github_org | replace('/', '.') }}.{{ (github_repo + '.') if github_repo else '' }}{{ github_runner_name }}.service"
+    state: started
+    enabled: yes
+    daemon_reload: yes
+  become: true
