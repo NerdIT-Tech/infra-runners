@@ -1,19 +1,9 @@
-locals {
-  # Distribute runners across nodes using modulo
-  runner_configs = [
-    for i in range(var.runner_count) : {
-      name = "gh-runner-${format("%02d", i + 1)}"
-      node = var.proxmox_nodes[i % length(var.proxmox_nodes)]
-    }
-  ]
-}
-
 module "gh_runners" {
-  source = "./modules/proxmox-runner"
-  count  = length(local.runner_configs)
+  source   = "./modules/proxmox-runner"
+  for_each = var.runners
 
-  runner_name     = local.runner_configs[count.index].name
-  proxmox_node    = local.runner_configs[count.index].node
+  runner_name     = each.key
+  proxmox_node    = each.value.node
   template_vmid   = var.template_vmid
   pool            = var.pool
   target_storage  = var.target_storage

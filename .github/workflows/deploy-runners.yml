@@ -16,6 +16,7 @@ jobs:
     runs-on: self-hosted
     outputs:
       plan_exists: ${{ steps.plan.outputs.plan_exists }}
+      destroy_list: ${{ steps.detect.outputs.destroy_list }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,6 +62,17 @@ jobs:
           echo "PLAN<<PLAN_EOF" >> $GITHUB_ENV
           terraform show -no-color tfplan >> $GITHUB_ENV
           echo "PLAN_EOF" >> $GITHUB_ENV
+
+      - name: Detect Destructions
+        id: detect
+        run: |
+          cd terraform
+          DESTROY_LIST=$(terraform show -json tfplan | jq -r '.resource_changes[] | select(.change.actions | contains(["delete"])) | select(.type == "proxmox_virtual_environment_vm") | .change.before.name' | tr '\n' ',' | sed 's/,$//')
+          echo "destroy_list=$DESTROY_LIST" >> $GITHUB_OUTPUT
+          if [ ! -z "$DESTROY_LIST" ]; then
+            echo "### ⚠️ Destructions Detected" >> $GITHUB_STEP_SUMMARY
+            echo "The following VMs are marked for decommissioning: \`$DESTROY_LIST\`" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Upload Plan & State
         uses: actions/upload-artifact@v4
@@ -132,8 +144,28 @@ jobs:
           TF_STATE_CONN_VAR: ${{ vars.TF_STATE_CONN }}
         run: |
           cd terraform
-          export TF_STATE_CONN=$(echo $TF_STATE_CONN_VAR | envsubst)
+          export TF_STATE_CONN=$(echo "$TF_STATE_CONN_VAR" | envsubst)
           terraform init -backend-config="conn_str=$TF_STATE_CONN"
+
+      - name: Intercept Destructions
+        if: needs.plan.outputs.destroy_list != ''
+        env:
+          PROXMOX_HOST: ${{ secrets.PROXMOX_HOST }}
+          PROXMOX_USER: ${{ secrets.PROXMOX_USER }}
+          PROXMOX_PASSWORD: ${{ secrets.PROXMOX_PASSWORD }}
+          GH_ORG: ${{ secrets.GH_ORG }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          echo "$SSH_PRIVATE_KEY" > runner_key
+          chmod 600 runner_key
+          export ANSIBLE_HOST_KEY_CHECKING=False
+          
+          IFS=',' read -ra ADDR <<< "${{ needs.plan.outputs.destroy_list }}"
+          for i in "${ADDR[@]}"; do
+            echo "Intercepting destruction of $i..."
+            RUNNER_NAME=$i ansible-playbook ansible/decommission.yml --private-key runner_key
+          done
+          rm runner_key
 
       - name: Terraform Apply
         env:
@@ -144,7 +176,12 @@ jobs:
           TF_VAR_ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           cd terraform
-          terraform apply -auto-approve tfplan
+          # If we modified state, we need a fresh apply without the old tfplan
+          if [ ! -z "${{ needs.plan.outputs.destroy_list }}" ]; then
+            terraform apply -auto-approve
+          else
+            terraform apply -auto-approve tfplan
+          fi
 
       - name: Capture Outputs
         id: output

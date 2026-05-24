@@ -1,0 +1,51 @@
+name: Decommission Runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      runner_name:
+        description: 'Name of the runner to decommission (e.g. gh-runner-01)'
+        required: true
+        type: string
+
+jobs:
+  decommission:
+    name: Mark for Cleanup
+    runs-on: self-hosted
+    env:
+      PROXMOX_HOST: ${{ secrets.PROXMOX_HOST }}
+      PROXMOX_USER: ${{ secrets.PROXMOX_USER }}
+      PROXMOX_PASSWORD: ${{ secrets.PROXMOX_PASSWORD }}
+      RUNNER_NAME: ${{ github.event.inputs.runner_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        env:
+          TF_DB_USER: ${{ vars.TF_DB_USER }}
+          TF_DB_PASSWORD: ${{ secrets.TF_DB_PASSWORD }}
+          TF_DB_HOST: ${{ vars.TF_DB_HOST }}
+          TF_DB_PORT: ${{ vars.TF_DB_PORT }}
+          TF_DB_NAME: ${{ vars.TF_DB_NAME }}
+          TF_STATE_CONN_VAR: ${{ vars.TF_STATE_CONN }}
+        run: |
+          cd terraform
+          export TF_STATE_CONN=$(echo "$TF_STATE_CONN_VAR" | envsubst)
+          terraform init -backend-config="conn_str=$TF_STATE_CONN"
+
+      - name: Mark for Decommissioning
+        run: |
+          cd ansible
+          ansible-playbook decommission.yml
+
+      - name: Next Steps
+        run: |
+          echo "### ✅ Runner Marked for Cleanup" >> $GITHUB_STEP_SUMMARY
+          echo "The runner \`${{ github.event.inputs.runner_name }}\` has been labeled in Proxmox and removed from Terraform state." >> $GITHUB_STEP_SUMMARY
+          echo "Please ensure you remove this runner from \`terraform/terraform.tfvars\` to keep the code in sync." >> $GITHUB_STEP_SUMMARY

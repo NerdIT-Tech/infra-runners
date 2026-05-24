@@ -1,48 +1,50 @@
 ---
-- name: Janitor Cleanup
+- name: Janitor Background Cleanup
   hosts: localhost
-  vars:
-    project_root: "/workspaces/infra-runners"
   tasks:
-    - name: Fetch active runners from GitHub
+    - name: Get all Proxmox nodes
       uri:
-        url: "https://api.github.com/orgs/{{ lookup('env', 'GH_ORG') }}/actions/runners"
+        url: "https://{{ lookup('env', 'PROXMOX_HOST') }}:8006/api2/json/nodes"
+        method: GET
         headers:
-          Authorization: "token {{ lookup('env', 'GH_TOKEN') }}"
-      register: gh_runners
+          Authorization: "PVEAPIToken={{ lookup('env', 'PROXMOX_USER') }}={{ lookup('env', 'PROXMOX_TOKEN') }}"
+        validate_certs: no
+      register: nodes_res
 
-    - name: Get Terraform State
-      command: terraform show -json
-      args:
-        chdir: "{{ project_root }}/terraform"
-      register: tf_state
-      changed_when: false
+    - name: Find VMs with janitor tag on each node
+      uri:
+        url: "https://{{ lookup('env', 'PROXMOX_HOST') }}:8006/api2/json/nodes/{{ item.node }}/qemu"
+        method: GET
+        headers:
+          Authorization: "PVEAPIToken={{ lookup('env', 'PROXMOX_USER') }}={{ lookup('env', 'PROXMOX_TOKEN') }}"
+        validate_certs: no
+      loop: "{{ nodes_res.json.data }}"
+      register: vms_res
 
-    - name: Identify Stale Runners
+    - name: Identify VMs for deletion
       set_fact:
-        stale_runners: >-
-          {{ 
-            (tf_state.stdout | from_json).values.root_module.child_modules 
-            | selectattr('address', 'equalto', 'module.gh_runners') 
-            | map(attribute='resources') | flatten 
-            | selectattr('values.vmid', 'defined')
-            | rejectattr('values.name', 'in', gh_runners.json.runners | map(attribute='name'))
-          }}
+        vms_to_nuke: >-
+          {% set vms = [] %}
+          {% for node_vms in vms_res.results %}
+            {% for vm in node_vms.json.data %}
+              {% if 'janitor:cleanup' in (vm.tags | default('')) %}
+                {% set _ = vms.append({'vmid': vm.vmid, 'node': node_vms.item.node, 'name': vm.name}) %}
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          {{ vms }}
 
-    - name: Remove Stale Runners
-      block:
-        - name: Destroy in Proxmox
-          proxmox_kvm:
-            api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
-            api_user: "{{ lookup('env', 'PROXMOX_USER') }}"
-            api_password: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
-            vmid: "{{ item.values.vmid }}"
-            state: absent
-          loop: "{{ stale_runners }}"
-        
-        - name: Update Terraform State
-          command: "terraform state rm {{ item.address }}"
-          args:
-            chdir: "{{ project_root }}/terraform"
-          loop: "{{ stale_runners }}"
-      when: stale_runners | length > 0
+    - name: Nuke marked VMs
+      proxmox_kvm:
+        api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
+        api_user: "{{ lookup('env', 'PROXMOX_USER') }}"
+        api_password: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
+        vmid: "{{ item.vmid }}"
+        node: "{{ item.node }}"
+        state: absent
+      loop: "{{ vms_to_nuke }}"
+      when: vms_to_nuke | length > 0
+
+    - name: Summary
+      debug:
+        msg: "Cleaned up {{ vms_to_nuke | length }} VMs marked for decommissioning."

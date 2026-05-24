@@ -55,3 +55,9 @@ variable "memory_mb" {
   type    = number
   default = 2048
 }
+
+variable "extra_tags" {
+  type        = list(string)
+  description = "Additional tags to add to the VM"
+  default     = []
+}

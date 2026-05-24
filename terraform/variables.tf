@@ -24,13 +24,21 @@ variable "ssh_private_key" {
   sensitive   = true
 }
 
-variable "runner_count" {
-  type    = number
-  default = 3
-  validation {
-    condition     = var.runner_count >= 1
-    error_message = "At least one runner must be maintained to avoid breaking the IaC pipeline."
+variable "runners" {
+  type = map(object({
+    node = string
+  }))
+  description = "Map of runner names to their configuration"
+  default = {
+    "gh-runner-01" = { node = "proxmoxnode01" }
+    "gh-runner-02" = { node = "proxmoxnode02" }
+    "gh-runner-03" = { node = "proxmoxnode03" }
   }
+}
+
+variable "janitor_tag" {
+  type    = string
+  default = "janitor:cleanup"
 }
 
 # Default infrastructure settings
@@ -54,4 +62,3 @@ variable "target_storage" {
   type    = string
   default = "local-lvm"
 }
-

@@ -1,7 +1,7 @@
 resource "proxmox_virtual_environment_vm" "runner" {
   name        = var.runner_name
   description = "Managed by Terraform - GitHub Actions Runner"
-  tags        = ["gh-runner", "terraform", "iac"]
+  tags        = concat(["gh-runner", "terraform", "iac"], var.extra_tags)
   
   vm_id     = var.vmid != 0 ? var.vmid : null
   node_name = var.proxmox_node
