@@ -238,7 +238,7 @@ jobs:
           
           ansible-playbook -i hosts.ini site.yml \
             --private-key runner_key \
-            --extra-vars "GH_PAT=$GH_PAT GH_ORG=$GH_ORG tf_db_name=$TF_DB_NAME tf_db_user=$TF_DB_USER tf_db_password=$TF_DB_PASSWORD tf_db_port=$TF_DB_PORT tf_db_schema=$TF_DB_SCHEMA"
+            --extra-vars "github_pat=$GH_PAT github_org=$GH_ORG postgresql_db_name=$TF_DB_NAME postgresql_db_user=$TF_DB_USER postgresql_db_pass=$TF_DB_PASSWORD postgresql_port=$TF_DB_PORT postgresql_db_schema=$TF_DB_SCHEMA"
           
           rm runner_key
 

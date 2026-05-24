@@ -81,7 +81,7 @@ chmod 600 runner_key
 export ANSIBLE_HOST_KEY_CHECKING=False
 ansible-playbook -i bootstrap_hosts.ini site.yml \
     --private-key runner_key \
-    --extra-vars "GH_PAT=$GH_PAT GH_ORG=$GH_ORG"
+    --extra-vars "github_pat=$GH_PAT github_org=$GH_ORG"
 
 echo "----------------------------------------"
 echo "SUCCESS: $RUNNER_NAME is now online and registered to $GH_ORG"
