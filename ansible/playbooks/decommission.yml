@@ -34,7 +34,7 @@
         name: "actions.runner.{{ lookup('env', 'GH_ORG') }}.{{ runner_name }}.service"
         state: stopped
         enabled: no
-      ignore_errors: yes
+      ignore_errors: true
       vars:
         ansible_host: "{{ runner_resource.values.ip_address | default(runner_resource.values.ip) }}"
         ansible_user: "runner"

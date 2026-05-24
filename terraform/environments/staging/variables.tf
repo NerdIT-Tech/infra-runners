@@ -24,28 +24,16 @@ variable "ssh_private_key" {
   sensitive   = true
 }
 
-variable "runners" {
-  type = map(object({
-    node = string
-  }))
-  description = "Map of runner names to their configuration"
-  default = {
-    "gh-runner-01" = { node = "proxmoxnode01" }
-    "gh-runner-02" = { node = "proxmoxnode02" }
-    "gh-runner-03" = { node = "proxmoxnode03" }
-  }
+variable "runner_count" {
+  type        = number
+  description = "Number of runners to deploy"
+  default     = 1
 }
 
-variable "janitor_tag" {
-  type    = string
-  default = "janitor:cleanup"
-}
-
-# Default infrastructure settings
 variable "proxmox_nodes" {
   type        = list(string)
-  description = "List of Proxmox nodes for HA distribution"
-  default     = ["proxmoxnode01", "proxmoxnode02", "proxmoxnode03"]
+  description = "List of Proxmox nodes for distribution"
+  default     = ["proxmoxnode01"]
 }
 
 variable "template_vmid" {
@@ -55,7 +43,7 @@ variable "template_vmid" {
 
 variable "pool" {
   type    = string
-  default = "infra"
+  default = "infra-staging"
 }
 
 variable "target_storage" {

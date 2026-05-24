@@ -1,0 +1,52 @@
+variable "pm_api_url" {
+  type        = string
+  description = "Proxmox API URL"
+}
+
+variable "pm_user" {
+  type        = string
+  description = "Proxmox API user"
+}
+
+variable "pm_password" {
+  type      = string
+  sensitive = true
+}
+
+variable "ssh_public_key" {
+  type        = string
+  description = "SSH public key content"
+}
+
+variable "ssh_private_key" {
+  type        = string
+  description = "SSH private key content"
+  sensitive   = true
+}
+
+variable "runner_count" {
+  type        = number
+  description = "Number of runners to deploy"
+  default     = 3
+}
+
+variable "proxmox_nodes" {
+  type        = list(string)
+  description = "List of Proxmox nodes for distribution"
+  default     = ["proxmoxnode01", "proxmoxnode02", "proxmoxnode03"]
+}
+
+variable "template_vmid" {
+  type    = number
+  default = 900
+}
+
+variable "pool" {
+  type    = string
+  default = "infra"
+}
+
+variable "target_storage" {
+  type    = string
+  default = "local-lvm"
+}
