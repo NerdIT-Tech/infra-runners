@@ -1,0 +1,48 @@
+---
+- name: Janitor Cleanup
+  hosts: localhost
+  vars:
+    project_root: "/workspaces/infra-runners"
+  tasks:
+    - name: Fetch active runners from GitHub
+      uri:
+        url: "https://api.github.com/orgs/{{ lookup('env', 'GH_ORG') }}/actions/runners"
+        headers:
+          Authorization: "token {{ lookup('env', 'GH_TOKEN') }}"
+      register: gh_runners
+
+    - name: Get Terraform State
+      command: terraform show -json
+      args:
+        chdir: "{{ project_root }}/terraform"
+      register: tf_state
+      changed_when: false
+
+    - name: Identify Stale Runners
+      set_fact:
+        stale_runners: >-
+          {{ 
+            (tf_state.stdout | from_json).values.root_module.child_modules 
+            | selectattr('address', 'equalto', 'module.gh_runners') 
+            | map(attribute='resources') | flatten 
+            | selectattr('values.vmid', 'defined')
+            | rejectattr('values.name', 'in', gh_runners.json.runners | map(attribute='name'))
+          }}
+
+    - name: Remove Stale Runners
+      block:
+        - name: Destroy in Proxmox
+          proxmox_kvm:
+            api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
+            api_user: "{{ lookup('env', 'PROXMOX_USER') }}"
+            api_password: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
+            vmid: "{{ item.values.vmid }}"
+            state: absent
+          loop: "{{ stale_runners }}"
+        
+        - name: Update Terraform State
+          command: "terraform state rm {{ item.address }}"
+          args:
+            chdir: "{{ project_root }}/terraform"
+          loop: "{{ stale_runners }}"
+      when: stale_runners | length > 0

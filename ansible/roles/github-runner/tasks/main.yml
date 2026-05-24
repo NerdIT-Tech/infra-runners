@@ -41,7 +41,7 @@
     - name: Configure runner
       become_user: runner
       command:
-        cmd: "./config.sh --url {{ github_url }} --token {{ registration_token_res.json.token }} --name {{ ansible_hostname }} --unattended --replace"
+        cmd: "./config.sh --url {{ github_url }} --token {{ registration_token_res.json.token }} --name {{ ansible_hostname }} --unattended --replace --ephemeral"
         chdir: "{{ runner_dir }}"
       no_log: true
   when: not runner_registered.stat.exists

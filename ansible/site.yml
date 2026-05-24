@@ -1,14 +1,14 @@
 ---
 - name: Setup Bootstrap Database
   hosts: bootstrap_db
-  become: yes
+  become: true
   roles:
     - common
     - postgres
 
 - name: Setup GitHub Runners on Proxmox VMs
   hosts: github_runners
-  become: yes
+  become: true
   serial: 1
   any_errors_fatal: true
   max_fail_percentage: 0
