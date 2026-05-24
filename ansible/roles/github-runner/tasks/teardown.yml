@@ -1,0 +1,58 @@
+---
+- name: Check if runner is registered
+  stat:
+    path: "{{ github_runner_dir }}/.runner"
+  register: runner_registered_stat
+
+- name: Unregister and Uninstall Runner
+  block:
+    - name: Get removal token from GitHub (Org)
+      uri:
+        url: "https://api.github.com/orgs/{{ github_org }}/actions/runners/registration-token"
+        method: POST
+        headers:
+          Authorization: "token {{ github_pat }}"
+          Accept: "application/vnd.github+json"
+        status_code: 201
+      register: removal_token_res_org
+      no_log: true
+      when: github_account_type == "org"
+
+    - name: Get removal token from GitHub (Repo)
+      uri:
+        url: "https://api.github.com/repos/{{ github_org }}/{{ github_repo }}/actions/runners/registration-token"
+        method: POST
+        headers:
+          Authorization: "token {{ github_pat }}"
+          Accept: "application/vnd.github+json"
+        status_code: 201
+      register: removal_token_res_repo
+      no_log: true
+      when: github_account_type == "repo"
+
+    - name: Set removal token fact
+      set_fact:
+        removal_token: "{{ removal_token_res_org.json.token if github_account_type == 'org' else removal_token_res_repo.json.token }}"
+      no_log: true
+
+    - name: Stop and Uninstall Service
+      command:
+        cmd: "./svc.sh uninstall"
+        chdir: "{{ github_runner_dir }}"
+      become: true
+      ignore_errors: yes
+
+    - name: Unconfigure runner
+      become_user: "{{ github_runner_user }}"
+      command:
+        cmd: "./config.sh remove --token {{ removal_token }}"
+        chdir: "{{ github_runner_dir }}"
+      no_log: true
+      ignore_errors: yes
+
+    - name: Remove runner directory
+      file:
+        path: "{{ github_runner_dir }}"
+        state: absent
+      become: true
+  when: runner_registered_stat.stat.exists

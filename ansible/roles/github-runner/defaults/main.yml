@@ -19,3 +19,5 @@ github_runner_labels: []
 github_runner_extra_config_args: ""
 github_runner_ephemeral: true
 github_runner_replace: true
+
+github_runner_state: present # present to install, absent to remove
