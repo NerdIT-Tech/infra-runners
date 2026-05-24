@@ -37,7 +37,7 @@ variable "runner_count" {
 variable "proxmox_nodes" {
   type        = list(string)
   description = "List of Proxmox nodes for HA distribution"
-  default     = ["proxmoxnode01"]#, "proxmoxnode02", "proxmoxnode03"]
+  default     = ["proxmoxnode01"]
 }
 
 variable "template_vmid" {
