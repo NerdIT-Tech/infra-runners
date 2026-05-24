@@ -236,7 +236,7 @@ jobs:
           export ANSIBLE_HOST_KEY_CHECKING=False
           export ANSIBLE_FORCE_COLOR=True
           
-          ansible-playbook -i hosts.ini site.yml \
+          ansible-playbook -i hosts.ini playbooks/site.yml \
             --private-key runner_key \
             --extra-vars "github_pat=$GH_PAT github_org=$GH_ORG postgresql_db_name=$TF_DB_NAME postgresql_db_user=$TF_DB_USER postgresql_db_pass=$TF_DB_PASSWORD postgresql_port=$TF_DB_PORT postgresql_db_schema=$TF_DB_SCHEMA"
           

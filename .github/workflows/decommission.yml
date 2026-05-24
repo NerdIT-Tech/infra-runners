@@ -42,7 +42,7 @@ jobs:
       - name: Mark for Decommissioning
         run: |
           cd ansible
-          ansible-playbook decommission.yml
+          ansible-playbook playbooks/decommission.yml
 
       - name: Next Steps
         run: |

@@ -79,7 +79,7 @@ chmod 600 runner_key
 # Run the playbook
 # Note: Ensure you have your SSH private key available locally
 export ANSIBLE_HOST_KEY_CHECKING=False
-ansible-playbook -i bootstrap_hosts.ini site.yml \
+ansible-playbook -i bootstrap_hosts.ini playbooks/site.yml \
     --private-key runner_key \
     --extra-vars "github_pat=$GH_PAT github_org=$GH_ORG"
 
