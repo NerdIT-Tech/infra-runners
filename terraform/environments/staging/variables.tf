@@ -32,7 +32,7 @@ variable "runner_count" {
 
 variable "proxmox_nodes" {
   type        = list(string)
-  description = "List of Proxmox nodes for HA distribution"
+  description = "List of Proxmox nodes for distribution"
   default     = ["proxmoxnode01"]
 }
 

@@ -1,6 +1,12 @@
+<<<<<<< HEAD
 variable "pm_host" {
   type        = string
   description = "Proxmox Host (IP or FQDN)"
+=======
+variable "pm_api_url" {
+  type        = string
+  description = "Proxmox API URL"
+>>>>>>> 6798711 (refactor(terraform): adopting more structured design)
 }
 
 variable "pm_user" {
@@ -27,7 +33,11 @@ variable "ssh_private_key" {
 variable "runner_count" {
   type        = number
   description = "Number of runners to deploy"
+<<<<<<< HEAD
   default     = 2
+=======
+  default     = 3
+>>>>>>> 6798711 (refactor(terraform): adopting more structured design)
 }
 
 variable "proxmox_nodes" {
