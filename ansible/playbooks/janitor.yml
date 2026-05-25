@@ -1,7 +1,13 @@
 ---
 - name: Janitor Background Cleanup
   hosts: localhost
+  vars:
+    project_root: "/workspaces/infra-runners"
   tasks:
+    - name: Get current UTC time
+      set_fact:
+        current_time: "{{ lookup('pipe', 'date -u +%Y-%m-%dT%H:%M:%SZ') }}"
+
     - name: Get all Proxmox nodes
       uri:
         url: "https://{{ lookup('env', 'PROXMOX_HOST') }}:8006/api2/json/nodes"
@@ -11,7 +17,7 @@
         validate_certs: no
       register: nodes_res
 
-    - name: Find VMs with janitor tag on each node
+    - name: Find all VMs on each node
       uri:
         url: "https://{{ lookup('env', 'PROXMOX_HOST') }}:8006/api2/json/nodes/{{ item.node }}/qemu"
         method: GET
@@ -21,30 +27,74 @@
       loop: "{{ nodes_res.json.data }}"
       register: vms_res
 
-    - name: Identify VMs for deletion
+    - name: Identify VMs for processing
       set_fact:
-        vms_to_nuke: >-
-          {% set vms = [] %}
+        vms_to_process: >-
+          {% set processed_vms = [] %}
           {% for node_vms in vms_res.results %}
             {% for vm in node_vms.json.data %}
-              {% if 'janitor:cleanup' in (vm.tags | default('')) %}
-                {% set _ = vms.append({'vmid': vm.vmid, 'node': node_vms.item.node, 'name': vm.name}) %}
+              {% set parsed_tags = {} %}
+              {% for tag in (vm.tags | default('')).split(',') %}
+                {% if tag.startswith('org:') %}
+                   {% set parts = tag.split(':') %}
+                   {% if parts|length >= 3 %}
+                      {% set _ = parsed_tags.update({parts[1]: parts[2]}) %}
+                   {% endif %}
+                {% endif %}
+              {% endfor %}
+
+              {# Logic: Process if cleanup is explicitly requested OR if it's ephemeral and expired #}
+              {% set is_cleanup_triggered = 'org:cleanup-policy:cleanup' in (vm.tags | default('')) %}
+              {% set is_ephemeral = parsed_tags.get('cleanup-policy') == 'ephemeral' %}
+              {% set expires_at = parsed_tags.get('expires-at') %}
+              {% set is_expired = (expires_at and current_time > expires_at) %}
+
+              {% if is_cleanup_triggered or (is_ephemeral and is_expired) %}
+                {% set _ = processed_vms.append({
+                  'vmid': vm.vmid,
+                  'node': node_vms.item.node,
+                  'name': vm.name,
+                  'service': parsed_tags.get('service', 'unknown')
+                }) %}
               {% endif %}
             {% endfor %}
           {% endfor %}
-          {{ vms }}
+          {{ processed_vms }}
 
-    - name: Nuke marked VMs
+    - name: Check for specialized cleanup playbooks
+      stat:
+        path: "{{ project_root }}/ansible/playbooks/cleanup-{{ item.service }}.yml"
+      loop: "{{ vms_to_process }}"
+      register: specialized_playbooks
+      when: vms_to_process | length > 0
+
+    - name: Run specialized cleanup
+      command: "ansible-playbook {{ project_root }}/ansible/playbooks/cleanup-{{ item.item.service }}.yml"
+      environment:
+        CLEANUP_VMID: "{{ item.item.vmid }}"
+        CLEANUP_NODE: "{{ item.item.node }}"
+        CLEANUP_NAME: "{{ item.item.name }}"
+      loop: "{{ specialized_playbooks.results }}"
+      when: 
+        - item.stat is defined 
+        - item.stat.exists
+      register: specialized_results
+
+    - name: Nuke VMs without specialized cleanup
       proxmox_kvm:
         api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
         api_user: "{{ lookup('env', 'PROXMOX_USER') }}"
         api_password: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
-        vmid: "{{ item.vmid }}"
-        node: "{{ item.node }}"
+        vmid: "{{ item.item.vmid }}"
+        node: "{{ item.item.node }}"
         state: absent
-      loop: "{{ vms_to_nuke }}"
-      when: vms_to_nuke | length > 0
+      loop: "{{ specialized_playbooks.results }}"
+      when: 
+        - item.stat is defined 
+        - not item.stat.exists
+        - item.item.vmid is defined
 
     - name: Summary
       debug:
-        msg: "Cleaned up {{ vms_to_nuke | length }} VMs marked for decommissioning."
+        msg: "Processed {{ vms_to_process | length }} VMs. (Specialized: {{ specialized_results.results | selectattr('changed', 'defined') | list | length }}, Direct Deletion: {{ vms_to_process | length - (specialized_results.results | selectattr('changed', 'defined') | list | length) }})"
+      when: vms_to_process | length > 0

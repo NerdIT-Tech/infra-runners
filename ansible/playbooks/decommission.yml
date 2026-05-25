@@ -39,16 +39,6 @@
         ansible_host: "{{ runner_resource.values.ip_address | default(runner_resource.values.ip) }}"
         ansible_user: "runner"
       when: (runner_resource.values.ip_address | default(runner_resource.values.ip)) is defined
-
-    - name: Add Janitor Tag in Proxmox
-      proxmox_kvm:
-        api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
-        api_user: "{{ lookup('env', 'PROXMOX_USER') }}"
-        api_password: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
-        vmid: "{{ runner_resource.values.vmid }}"
-        node: "{{ runner_resource.values.node }}"
-        tags: "gh-runner,terraform,iac,janitor:cleanup"
-        state: present
       
     - name: Remove from Terraform State
       command: "terraform state rm {{ runner_resource.address }}"

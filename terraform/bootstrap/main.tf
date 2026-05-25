@@ -17,9 +17,9 @@ resource "proxmox_virtual_environment_vm" "db_host" {
   name        = "iac-state-db"
   description = "Managed by Terraform - Bootstrap State Host"
   tags        = ["bootstrap", "database", "terraform"]
-  
+
   node_name = var.proxmox_node
-  
+
   clone {
     vm_id = var.template_vmid
   }

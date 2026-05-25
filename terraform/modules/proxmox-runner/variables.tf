@@ -37,7 +37,6 @@ variable "ssh_public_key" {
 variable "ssh_private_key" {
   type        = string
   description = "SSH private key for provisioning (optional)"
-  default     = ""
 }
 
 variable "bridge" {
@@ -56,8 +55,25 @@ variable "memory_mb" {
   default = 2048
 }
 
-variable "extra_tags" {
-  type        = list(string)
-  description = "Additional tags to add to the VM"
-  default     = []
+variable "tags" {
+  type        = map(string)
+  description = "Standardized tags for resource governance. Mandatory keys: org:service, org:environment, org:owner, org:project, org:cleanup-policy"
+
+  validation {
+    condition = alltrue([
+      for key in ["org:service", "org:environment", "org:owner", "org:project", "org:cleanup-policy"] :
+      contains(keys(var.tags), key)
+    ])
+    error_message = "Mandatory tags missing. Please ensure the following tags are provided: org:service, org:environment, org:owner, org:project, org:cleanup-policy."
+  }
+
+  validation {
+    condition     = contains(["prd", "stg", "dev"], lookup(var.tags, "org:environment", "unknown"))
+    error_message = "The 'org:environment' tag must be one of: prd, stg, dev."
+  }
+
+  validation {
+    condition     = contains(["ephemeral", "protected"], lookup(var.tags, "org:cleanup-policy", "unknown"))
+    error_message = "The 'org:cleanup-policy' tag must be one of: ephemeral, protected."
+  }
 }

@@ -1,6 +1,19 @@
+locals {
+  common_tags = {
+    "org:service"        = "gh-runner"
+    "org:environment"    = "prd"
+    "org:owner"          = "platform-eng"
+    "org:project"        = "infra-runners"
+    "org:cleanup-policy" = "ephemeral"
+    "org:managed-by"     = "terraform"
+    "org:repo"           = "https://github.com/example/infra-runners"
+    "org:created-at"     = formatdate("YYYY-MM-DD", timestamp())
+  }
+}
+
 module "gh_runners" {
-  source   = "../../modules/proxmox-runner"
-  count    = var.runner_count
+  source = "../../modules/proxmox-runner"
+  count  = var.runner_count
 
   runner_name     = "gh-runner-prod-${format("%02d", count.index + 1)}"
   proxmox_node    = var.proxmox_nodes[count.index % length(var.proxmox_nodes)]
@@ -9,6 +22,8 @@ module "gh_runners" {
   target_storage  = var.target_storage
   ssh_public_key  = var.ssh_public_key
   ssh_private_key = var.ssh_private_key
+
+  tags = local.common_tags
 }
 
 # SRE Best Practice: Ensure we never drop to 0 runners in the plan
