@@ -26,7 +26,6 @@ module "gh_runners" {
   tags = local.common_tags
 }
 
-# SRE Best Practice: Ensure we never drop to 0 runners in the plan
 check "minimum_runners" {
   assert {
     condition     = length(module.gh_runners) >= 1

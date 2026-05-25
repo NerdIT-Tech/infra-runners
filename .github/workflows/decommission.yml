@@ -35,14 +35,40 @@ jobs:
           TF_DB_NAME: ${{ vars.TF_DB_NAME }}
           TF_STATE_CONN_VAR: ${{ vars.TF_STATE_CONN }}
         run: |
-          cd terraform
+          cd terraform/environments/production
           export TF_STATE_CONN=$(echo "$TF_STATE_CONN_VAR" | envsubst)
           terraform init -backend-config="conn_str=$TF_STATE_CONN"
 
       - name: Mark for Decommissioning
+        env:
+          GH_PAT: ${{ secrets.GH_RUNNER_PAT }}
+          GH_ORG: ${{ secrets.GH_ORG }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
-          cd ansible
-          ansible-playbook playbooks/decommission.yml
+          echo "$SSH_PRIVATE_KEY" > runner_key
+          chmod 600 runner_key
+          export ANSIBLE_HOST_KEY_CHECKING=False
+
+          cd terraform/environments/production
+          RUNNER_DETAILS=$(terraform output -json runner_details)
+          RUNNER_IP=$(echo "$RUNNER_DETAILS" | jq -r --arg NAME "${{ github.event.inputs.runner_name }}" '.[$NAME].ip')
+          
+          if [ "$RUNNER_IP" == "null" ]; then
+            echo "Error: Could not find IP for ${{ github.event.inputs.runner_name }}"
+            exit 1
+          fi
+
+          cd ../../../ansible
+          echo "${{ github.event.inputs.runner_name }} ansible_host=$RUNNER_IP ansible_user=runner" > temp_host.ini
+          
+          ansible-playbook -i temp_host.ini playbooks/site.yml \
+            --private-key ../runner_key \
+            -e "lifecycle_action=quiesce" \
+            -e "github_pat=$GH_PAT" \
+            -e "github_org=$GH_ORG" \
+            -e "project_root=$GITHUB_WORKSPACE"
+          
+          rm ../runner_key
 
       - name: Next Steps
         run: |

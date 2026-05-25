@@ -2,26 +2,38 @@
 - name: Skip hosts that do not require quiescing
   meta: end_host
   when: >
-    not org['cleanup-policy'] == 'ephemeral' and
-    (org['expires-at'] | default('9999-01-01')) < ansible_date_time.iso8601
+    (
+      not org['cleanup-policy'] == 'ephemeral' and
+      (org['expires-at'] | default('9999-01-01')) < ansible_date_time.iso8601
+    ) and
+    lifecycle_action | default('') != 'quiesce'
 
 - name: Remove VM from Terraform state
   command: >
     terraform state rm
-    proxmox_vm_qemu.{{ org['service'] }}["{{ inventory_hostname }}"]
+    'module.gh_runners[{{ item.index }}].proxmox_virtual_environment_vm.runner'
   args:
-    chdir: "{{ project_root }}/terraform"
+    chdir: "{{ project_root }}/terraform/environments/production"
   environment:
     TF_IN_AUTOMATION: "true"
+  delegate_to: localhost
+  vars:
+    # We need to find the index of this host in the runner fleet
+    # This assumes the hostname is 'gh-runner-prod-XX'
+    item:
+      index: "{{ (inventory_hostname | regex_replace('^.*-', '') | int) - 1 }}"
+  failed_when: false # It might already be gone
 
-- name: Check for service-specific quiesce playbook
+- name: Check for service-specific quiesce tasks
   stat:
-    path: "{{ playbook_dir }}/{{ org['service'] }}.yml"
-  register: quiesce_playbook
+    path: "{{ playbook_dir }}/quiesce/{{ org['service'] }}.yml"
+  register: quiesce_tasks
+  delegate_to: localhost
 
-- name: Run service-specific quiesce
-  import_playbook: "{{ org['service'] }}.yml"
-  when: quiesce_playbook.stat.exists
+- name: Run service-specific quiesce tasks
+  ansible.builtin.include_tasks:
+    file: "{{ org['service'] }}.yml"
+  when: quiesce_tasks.stat.exists
 
 - name: Default quiesce — stop VM gracefully
   community.proxmox.proxmox_kvm:
@@ -33,7 +45,8 @@
     vmid: "{{ org['vmid'] }}"
     node: "{{ org['node'] }}"
     state: stopped
-  when: not quiesce_playbook.stat.exists
+  delegate_to: localhost
+  when: not quiesce_tasks.stat.exists
 
 - name: Tag for retirement
   community.proxmox.proxmox_kvm:
@@ -46,3 +59,4 @@
     node: "{{ org['node'] }}"
     tags: "cleanup=true"
     state: present
+  delegate_to: localhost

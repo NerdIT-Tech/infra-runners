@@ -1,34 +1,26 @@
 ---
-- name: Quiesce GitHub Runner
-  hosts: localhost
-  gather_facts: no
+- name: "Log quiesce for {{ inventory_hostname }}"
+  debug:
+    msg: "Quiescing GitHub Runner {{ inventory_hostname }} (VMID: {{ org.vmid }}) on node {{ org.node }}"
 
+# ---------------------------------------------------------------
+# Graceful Unregistration via Role Teardown
+# ---------------------------------------------------------------
+- name: Run GitHub Runner Teardown
+  ansible.builtin.include_tasks:
+    file: "../../roles/github-runner/tasks/teardown.yml"
   vars:
-    vmid: "{{ lookup('env', 'CLEANUP_VMID') }}"
-    node: "{{ lookup('env', 'CLEANUP_NODE') }}"
-    name: "{{ lookup('env', 'CLEANUP_NAME') }}"
-    project_root: "/workspaces/infra-runners"
+    github_org: "{{ lookup('env', 'GH_ORG') }}"
+    github_pat: "{{ lookup('env', 'GH_PAT') }}"
+    # Ensure role defaults are available if not already loaded
+    github_runner_user: "runner"
+    github_runner_dir: "/home/runner/actions-runner"
 
-    gh_org: "{{ lookup('env', 'GH_ORG') }}"
-    gh_pat: "{{ lookup('env', 'GH_PAT') }}"
-
-  tasks:
-
-    - name: "Log quiesce for {{ name }}"
-      debug:
-        msg: "Quiescing GitHub Runner {{ name }} (VMID: {{ vmid }}) on node {{ node }}"
-
-    # ---------------------------------------------------------------
-    # Stop the auto-registration service
-    # ---------------------------------------------------------------
-    - name: Stop GitHub runner auto-registration service
-      systemd:
-        name: github-runner-register
-        state: stopped
-        enabled: false
-      register: stop_service
-      failed_when: false
-
-    - name: Confirm service stopped
-      debug:
-        msg: "Auto-registration service stopped (or was not running)."
+- name: Stop GitHub runner auto-registration service (if present)
+  systemd:
+    name: github-runner-register
+    state: stopped
+    enabled: false
+  register: stop_service
+  failed_when: false
+  become: true

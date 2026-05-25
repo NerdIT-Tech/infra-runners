@@ -47,7 +47,7 @@ variable "bridge" {
 
 variable "cores" {
   type    = number
-  default = 2
+  default = 3
 }
 
 variable "memory_mb" {

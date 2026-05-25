@@ -1,50 +1,39 @@
 ---
-- name: Retire GitHub Runner
-  hosts: localhost
-  gather_facts: no
+- name: "Log retirement for {{ inventory_hostname }}"
+  debug:
+    msg: "Executing final retirement for GitHub Runner {{ inventory_hostname }} (VMID: {{ org.vmid }}) on node {{ org.node }}"
 
-  vars:
-    vmid: "{{ lookup('env', 'CLEANUP_VMID') }}"
-    node: "{{ lookup('env', 'CLEANUP_NODE') }}"
-    name: "{{ lookup('env', 'CLEANUP_NAME') }}"
-    gh_org: "{{ lookup('env', 'GH_ORG') }}"
-    gh_pat: "{{ lookup('env', 'GH_PAT') }}"
+# ---------------------------------------------------------------
+# Verify runner was deregistered in quiesce
+# ---------------------------------------------------------------
+- name: "Query GitHub for existing runners"
+  uri:
+    url: "https://api.github.com/orgs/{{ lookup('env', 'GH_ORG') }}/actions/runners"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ lookup('env', 'GH_PAT') }}"
+      Accept: "application/vnd.github+json"
+    return_content: true
+  register: gh_runners
+  delegate_to: localhost
+  failed_when: false
 
-  tasks:
+- name: "Check if runner {{ inventory_hostname }} still exists"
+  set_fact:
+    runner_still_exists: >-
+      {{
+        gh_runners.json.runners
+        | selectattr('name', 'equalto', inventory_hostname)
+        | list
+        | length > 0
+      }}
+  when: gh_runners.json.runners is defined
 
-    - name: "Log retirement for {{ name }}"
-      debug:
-        msg: "Executing final retirement for GitHub Runner {{ name }} (VMID: {{ vmid }}) on node {{ node }}"
+- name: "Fail if runner still exists (quiesce did not complete)"
+  fail:
+    msg: "GitHub runner {{ inventory_hostname }} still exists — quiesce did not deregister it."
+  when: runner_still_exists | default(false)
 
-    # ---------------------------------------------------------------
-    # Verify runner was deregistered in quiesce
-    # ---------------------------------------------------------------
-    - name: "Query GitHub for existing runners"
-      uri:
-        url: "https://api.github.com/orgs/{{ gh_org }}/actions/runners"
-        method: GET
-        headers:
-          Authorization: "Bearer {{ gh_pat }}"
-          Accept: "application/vnd.github+json"
-        return_content: true
-      register: gh_runners
-      failed_when: false
-
-    - name: "Check if runner {{ name }} still exists"
-      set_fact:
-        runner_still_exists: >-
-          {{
-            gh_runners.json.runners
-            | selectattr('name', 'equalto', name)
-            | list
-            | length > 0
-          }}
-
-    - name: "Fail if runner still exists (quiesce did not complete)"
-      fail:
-        msg: "GitHub runner {{ name }} still exists — quiesce did not deregister it."
-      when: runner_still_exists
-
-    - name: "Confirm runner was deregistered"
-      debug:
-        msg: "Runner {{ name }} is no longer registered in GitHub. Proceeding with retirement."
+- name: "Confirm runner was deregistered"
+  debug:
+    msg: "Runner {{ inventory_hostname }} is no longer registered in GitHub. Proceeding with retirement."

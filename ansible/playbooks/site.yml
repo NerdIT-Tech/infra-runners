@@ -61,11 +61,13 @@
     - name: Lifecycle | Quiesce
       ansible.builtin.include_tasks: quiesce/site.yml
       when: >
-        org is defined and (
+        (
+          org is defined and
           org['cleanup-policy'] == 'ephemeral' and
           org['expires-at'] is defined and
           org['expires-at'] < ansible_date_time.iso8601
-        )
+        ) or
+        lifecycle_action | default('') == 'quiesce'
 
     - name: Lifecycle | Retire
       ansible.builtin.include_tasks: retire/site.yml

@@ -27,7 +27,7 @@ variable "ssh_private_key" {
 variable "runner_count" {
   type        = number
   description = "Number of runners to deploy"
-  default     = 1
+  default     = 2
 }
 
 variable "proxmox_nodes" {
