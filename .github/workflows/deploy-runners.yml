@@ -133,7 +133,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: tf-artifacts-${{ github.sha }}
-          path: .
+          path: terraform/environments/production
 
       - name: Terraform Init
         env:
