@@ -1,12 +1,6 @@
-<<<<<<< HEAD
 variable "pm_host" {
   type        = string
   description = "Proxmox Host (IP or FQDN)"
-=======
-variable "pm_api_url" {
-  type        = string
-  description = "Proxmox API URL"
->>>>>>> 6798711 (refactor(terraform): adopting more structured design)
 }
 
 variable "pm_user" {
