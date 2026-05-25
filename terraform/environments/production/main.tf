@@ -6,8 +6,8 @@ locals {
     "org:project"        = "infra-runners"
     "org:cleanup-policy" = "ephemeral"
     "org:managed-by"     = "terraform"
-    "org:repo"           = "https://github.com/${var.repository}"
-    "org:created-at"     = formatdate("YYYY-MM-DD", timestamp())
+    "org:repo"           = "github.com/${var.repository}"
+    "org:created-at"     = var.created_at
   }
 }
 

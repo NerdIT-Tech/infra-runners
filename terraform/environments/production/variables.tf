@@ -1,6 +1,6 @@
-variable "pm_api_url" {
+variable "pm_host" {
   type        = string
-  description = "Proxmox API URL"
+  description = "Proxmox Host (IP or FQDN)"
 }
 
 variable "pm_user" {
@@ -54,4 +54,10 @@ variable "target_storage" {
 variable "repository" {
   type        = string
   description = "GitHub repository for the runners (e.g. org/repo)"
+}
+
+variable "created_at" {
+  type        = string
+  description = "Date string for the created-at tag (YYYY-MM-DD)"
+  default     = "2026-05-25"
 }
