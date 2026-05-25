@@ -33,11 +33,7 @@ variable "ssh_private_key" {
 variable "runner_count" {
   type        = number
   description = "Number of runners to deploy"
-<<<<<<< HEAD
   default     = 2
-=======
-  default     = 3
->>>>>>> 6798711 (refactor(terraform): adopting more structured design)
 }
 
 variable "proxmox_nodes" {
