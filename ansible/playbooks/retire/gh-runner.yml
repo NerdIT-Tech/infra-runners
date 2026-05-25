@@ -1,0 +1,50 @@
+---
+- name: Retire GitHub Runner
+  hosts: localhost
+  gather_facts: no
+
+  vars:
+    vmid: "{{ lookup('env', 'CLEANUP_VMID') }}"
+    node: "{{ lookup('env', 'CLEANUP_NODE') }}"
+    name: "{{ lookup('env', 'CLEANUP_NAME') }}"
+    gh_org: "{{ lookup('env', 'GH_ORG') }}"
+    gh_pat: "{{ lookup('env', 'GH_PAT') }}"
+
+  tasks:
+
+    - name: "Log retirement for {{ name }}"
+      debug:
+        msg: "Executing final retirement for GitHub Runner {{ name }} (VMID: {{ vmid }}) on node {{ node }}"
+
+    # ---------------------------------------------------------------
+    # Verify runner was deregistered in quiesce
+    # ---------------------------------------------------------------
+    - name: "Query GitHub for existing runners"
+      uri:
+        url: "https://api.github.com/orgs/{{ gh_org }}/actions/runners"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ gh_pat }}"
+          Accept: "application/vnd.github+json"
+        return_content: true
+      register: gh_runners
+      failed_when: false
+
+    - name: "Check if runner {{ name }} still exists"
+      set_fact:
+        runner_still_exists: >-
+          {{
+            gh_runners.json.runners
+            | selectattr('name', 'equalto', name)
+            | list
+            | length > 0
+          }}
+
+    - name: "Fail if runner still exists (quiesce did not complete)"
+      fail:
+        msg: "GitHub runner {{ name }} still exists — quiesce did not deregister it."
+      when: runner_still_exists
+
+    - name: "Confirm runner was deregistered"
+      debug:
+        msg: "Runner {{ name }} is no longer registered in GitHub. Proceeding with retirement."

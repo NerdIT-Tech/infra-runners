@@ -1,0 +1,8 @@
+---
+- name: Setup Bootstrap Database
+  hosts: bootstrap_db
+  gather_facts: false
+  become: true
+  roles:
+    - common
+    - postgres

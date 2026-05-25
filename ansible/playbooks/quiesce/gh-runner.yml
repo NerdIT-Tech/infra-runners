@@ -1,0 +1,34 @@
+---
+- name: Quiesce GitHub Runner
+  hosts: localhost
+  gather_facts: no
+
+  vars:
+    vmid: "{{ lookup('env', 'CLEANUP_VMID') }}"
+    node: "{{ lookup('env', 'CLEANUP_NODE') }}"
+    name: "{{ lookup('env', 'CLEANUP_NAME') }}"
+    project_root: "/workspaces/infra-runners"
+
+    gh_org: "{{ lookup('env', 'GH_ORG') }}"
+    gh_pat: "{{ lookup('env', 'GH_PAT') }}"
+
+  tasks:
+
+    - name: "Log quiesce for {{ name }}"
+      debug:
+        msg: "Quiescing GitHub Runner {{ name }} (VMID: {{ vmid }}) on node {{ node }}"
+
+    # ---------------------------------------------------------------
+    # Stop the auto-registration service
+    # ---------------------------------------------------------------
+    - name: Stop GitHub runner auto-registration service
+      systemd:
+        name: github-runner-register
+        state: stopped
+        enabled: false
+      register: stop_service
+      failed_when: false
+
+    - name: Confirm service stopped
+      debug:
+        msg: "Auto-registration service stopped (or was not running)."

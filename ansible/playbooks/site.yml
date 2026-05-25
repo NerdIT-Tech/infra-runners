@@ -1,19 +1,74 @@
 ---
-- name: Setup Bootstrap Database
-  hosts: bootstrap_db
-  become: true
-  roles:
-    - common
-    - postgres
+- name: Metadata | Discover & Normalize Proxmox Tags
+  hosts: all
+  gather_facts: false
+  tags: [always]
+  block:
+    - name: Get all Proxmox nodes
+      uri:
+        url: "{{ api_uri }}/nodes"
+        method: GET
+        headers:
+          Authorization: "{{ authorization }}"
+        validate_certs: "{{ validate_certs }}"
+      register: nodes_res
 
-- name: Setup GitHub Runners on Proxmox VMs
-  hosts: github_runners
-  become: true
-  serial: 1
-  any_errors_fatal: true
-  max_fail_percentage: 0
-  
-  roles:
-    - common
-    - docker
-    - github-runner
+    - name: Get all VMs on each node
+      uri:
+        url: "{{ api_uri }}/nodes/{{ item.node }}/qemu"
+        method: GET
+        headers:
+          Authorization: "{{ authorization }}"
+        validate_certs: "{{ validate_certs }}"
+      loop: "{{ nodes_res.json.data }}"
+      register: vms_res
+
+    - name: Normalize Proxmox tags into structured org:* metadata
+      ansible.builtin.set_fact:
+        vm_metadata: >-
+          {{
+            (vm_metadata | default({})) |
+            combine({
+              item.name: dict(
+                item.tags
+                | default("")
+                | split(",")
+                | map('regex_replace', '^(.*)=(.*)$', '\\1:\\2')
+                | map('split', ':')
+                | list
+              )
+            })
+          }}
+      loop: "{{ vms_res.results | map(attribute='json.data') | flatten }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Attach metadata to hostvars
+      ansible.builtin.set_fact:
+        org: "{{ vm_metadata[inventory_hostname] }}"
+      when: vm_metadata[inventory_hostname] is defined
+
+  vars:
+    authorization: "PVEAPIToken={{ lookup('env', 'PROXMOX_USER') }}={{ lookup('env', 'PROXMOX_TOKEN') }}"
+    validate_certs: false
+    api_uri: "https://{{ lookup('env', 'PROXMOX_HOST') }}:{{ lookup('env', 'PROXMOX_PORT') }}/api2/json"
+
+- name: Lifecycle | Provision
+  import_playbook: provision/site.yml
+  when: >
+    org is defined and (
+      org['org:managed-by'] == 'terraform' or
+      org['org:created-at'] is defined
+    )
+
+- name: Lifecycle | Janitor (Background Reaper)
+  import_playbook: maintenance/janitor.yml
+  when: >
+    org is defined and (
+      org['org:cleanup-policy'] == 'ephemeral' or
+      (org['org:expires-at'] | default('9999-01-01')) < ansible_date_time.iso8601
+    )
+
+- name: Lifecycle | Retire
+  import_playbook: retire/site.yml
+  when: org is defined and org['org:cleanup'] == 'true'

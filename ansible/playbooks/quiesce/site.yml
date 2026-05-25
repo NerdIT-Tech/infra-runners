@@ -1,0 +1,50 @@
+---
+- name: Quiesce | Prepare ephemeral VMs for retirement
+  hosts: all
+  gather_facts: false
+  tags: quiesce
+
+  tasks:
+    - name: Skip hosts that do not require quiescing
+      meta: end_host
+      when: >
+        not org['org:cleanup-policy'] == 'ephemeral' and
+        (org['org:expires-at'] | default('9999-01-01')) < ansible_date_time.iso8601
+
+    - name: Remove VM from Terraform state
+      command: >
+        terraform state rm
+        proxmox_vm_qemu.{{ org['org:service'] }}["{{ inventory_hostname }}"]
+      args:
+        chdir: "{{ project_root }}/terraform"
+      environment:
+        TF_IN_AUTOMATION: "true"
+
+    - name: Check for service-specific quiesce playbook
+      stat:
+        path: "{{ playbook_dir }}/{{ org['org:service'] }}.yml"
+      register: quiesce_playbook
+
+    - name: Run service-specific quiesce
+      import_playbook: "{{ org['org:service'] }}.yml"
+      when: quiesce_playbook.stat.exists
+
+    - name: Default quiesce — stop VM gracefully
+      proxmox_kvm:
+        api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
+        api_user: "{{ lookup('env', 'PROXMOX_USER') }}"
+        api_password: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
+        vmid: "{{ org['org:vmid'] }}"
+        node: "{{ org['org:node'] }}"
+        state: stopped
+      when: not quiesce_playbook.stat.exists
+
+    - name: Tag for retirement
+      proxmox_kvm:
+        api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
+        api_user: "{{ lookup('env', 'PROXMOX_USER') }}"
+        api_password: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
+        vmid: "{{ org['org:vmid'] }}"
+        node: "{{ org['org:node'] }}"
+        tags: "org:cleanup=true"
+        state: present
