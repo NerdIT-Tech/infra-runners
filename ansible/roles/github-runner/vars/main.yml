@@ -1,6 +1,0 @@
----
-runner_dir: "/home/runner/actions-runner"
-runner_version: "2.316.1"
-GH_ORG: "NerdIT-Tech"
-github_url: "https://github.com/{{ GH_ORG }}"
-# GH_PAT should be provided via vault, env, or extra-vars

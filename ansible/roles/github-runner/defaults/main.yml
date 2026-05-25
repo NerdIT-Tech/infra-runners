@@ -1,0 +1,23 @@
+---
+github_runner_version: "2.316.1"
+github_runner_user: "runner"
+github_runner_group: "runner"
+github_runner_dir: "/home/{{ github_runner_user }}/actions-runner"
+github_runner_architecture: "x64"
+github_runner_os: "linux"
+
+github_account_type: "org" # or "repo"
+github_org: ""
+github_repo: ""
+github_url: "https://github.com/{{ github_org if github_account_type == 'org' else github_org + '/' + github_repo }}"
+
+# github_pat should be provided securely
+github_pat: ""
+
+github_runner_name: "{{ inventory_hostname }}"
+github_runner_labels: []
+github_runner_extra_config_args: ""
+github_runner_ephemeral: false
+github_runner_replace: true
+
+github_runner_state: present # present to install, absent to remove

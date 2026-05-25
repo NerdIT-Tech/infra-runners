@@ -1,0 +1,77 @@
+---
+- name: Metadata | Discover & Normalize Proxmox Tags
+  hosts: all
+  gather_facts: false
+  tags: [always]
+  tasks:
+    - name: Get all VMs from Proxmox
+      community.proxmox.proxmox_vm_info:
+        api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
+        api_user: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[0] }}"
+        api_token_id: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[1] }}"
+        api_token_secret: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
+        api_password: ""
+        validate_certs: false
+      register: vms_res
+      delegate_to: localhost
+      run_once: true
+
+    - name: Build VM metadata
+      ansible.builtin.set_fact:
+        vm_metadata: >-
+          {{
+            vm_metadata | default({})
+            | combine({
+                item.name: dict(
+                  item.tags
+                  | split(';')
+                  | select('match', '^org_')
+                  | map('regex_replace', '^org_', '')
+                  | map('split', '_', 1)
+                )
+              })
+          }}
+      loop: "{{ vms_res.proxmox_vms }}"
+      delegate_to: localhost
+      when:
+        - item.tags is defined
+        - (
+            item.tags
+            | split(';')
+            | select('match', '^org_')
+            | list
+            | length
+          ) > 0
+
+    - name: Attach metadata to hostvars
+      ansible.builtin.set_fact:
+        org: "{{ vm_metadata[inventory_hostname] }}"
+      when:
+        - vm_metadata is defined
+        - inventory_hostname in vm_metadata
+
+    - name: Lifecycle | Provision
+      ansible.builtin.include_tasks: provision/site.yml
+      when: >
+        org is defined and (
+          org['managed-by'] == 'terraform' or
+          org['created-at'] is defined
+        )
+
+    - name: Lifecycle | Quiesce
+      ansible.builtin.include_tasks: quiesce/site.yml
+      when: >
+        (
+          org is defined and
+          org['cleanup-policy'] == 'ephemeral' and
+          org['expires-at'] is defined and
+          org['expires-at'] < ansible_date_time.iso8601
+        ) or
+        lifecycle_action | default('') == 'quiesce'
+
+    - name: Lifecycle | Retire
+      ansible.builtin.include_tasks: retire/site.yml
+      when: org is defined and (
+          org['cleanup'] is defined and
+          org['cleanup'] == 'true'
+        )

@@ -1,10 +1,7 @@
 ---
 - name: Install PostgreSQL
   apt:
-    name:
-      - postgresql
-      - postgresql-contrib
-      - python3-psycopg2
+    name: "{{ postgresql_packages }}"
     state: present
     update_cache: true
   become: true
@@ -36,15 +33,15 @@
 - name: Allow remote connections in pg_hba.conf
   lineinfile:
     path: "/etc/postgresql/{{ pg_version }}/main/pg_hba.conf"
-    regexp: '^host\s+{{ tf_db_name | regex_escape }}\s+{{ tf_db_user | regex_escape }}'
-    line: "host    {{ tf_db_name }}    {{ tf_db_user }}    0.0.0.0/0    scram-sha-256"
+    regexp: '^host\s+{{ postgresql_db_name | regex_escape }}\s+{{ postgresql_db_user | regex_escape }}'
+    line: "host    {{ postgresql_db_name }}    {{ postgresql_db_user }}    0.0.0.0/0    scram-sha-256"
   become: true
   notify: restart postgresql
 
 - name: Allow PostgreSQL traffic in UFW
   ufw:
     rule: allow
-    port: '{{ tf_db_port | default(5432) }}'
+    port: '{{ postgresql_port | default(5432) }}'
     proto: tcp
   become: true
   when: ufw_enabled | default(true)
@@ -55,34 +52,34 @@
     state: restarted
   become: true
 
-- name: Create {{ tf_db_user }} database user
+- name: Create {{ postgresql_db_user }} database user
   postgresql_user:
-    name: "{{ tf_db_user }}"
-    password: "{{ tf_db_password }}"
+    name: "{{ postgresql_db_user }}"
+    password: "{{ postgresql_db_pass }}"
     role_attr_flags: "CREATEDB"
   become: true
   become_user: postgres
 
-- name: Create {{ tf_db_name }} database
+- name: Create {{ postgresql_db_name }} database
   postgresql_db:
-    name: "{{ tf_db_name }}"
-    owner: "{{ tf_db_user }}"
+    name: "{{ postgresql_db_name }}"
+    owner: "{{ postgresql_db_user }}"
   become: true
   become_user: postgres
 
-- name: Grant connect privilege to {{ tf_db_user }} user
+- name: Grant connect privilege to {{ postgresql_db_user }} user
   postgresql_privs:
-    db: "{{ tf_db_name }}"
-    role: "{{ tf_db_user }}"
+    db: "{{ postgresql_db_name }}"
+    role: "{{ postgresql_db_user }}"
     privs: CONNECT
     type: database
   become: true
   become_user: postgres
 
-- name: Create terraform schema
+- name: Create database schema
   postgresql_schema:
-    db: "{{ tf_db_name }}"
-    name: "{{ tf_db_schema }}"
-    owner: "{{ tf_db_user }}"
+    db: "{{ postgresql_db_name }}"
+    name: "{{ postgresql_db_schema }}"
+    owner: "{{ postgresql_db_user }}"
   become: true
   become_user: postgres

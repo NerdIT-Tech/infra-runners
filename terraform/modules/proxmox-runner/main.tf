@@ -1,8 +1,8 @@
 resource "proxmox_virtual_environment_vm" "runner" {
   name        = var.runner_name
   description = "Managed by Terraform - GitHub Actions Runner"
-  tags        = ["gh-runner", "terraform", "iac"]
-  
+  tags        = [for k, v in merge(var.tags, local.service_tag) : replace(replace("${k}:${v}", ":", "_"), "/", "_")]
+
   vm_id     = var.vmid != 0 ? var.vmid : null
   node_name = var.proxmox_node
   pool_id   = var.pool
@@ -17,7 +17,7 @@ resource "proxmox_virtual_environment_vm" "runner" {
 
   cpu {
     cores = var.cores
-    type  = "host" # SRE Tip: Use host CPU type for better performance in nested virtualization
+    type  = "host"
   }
 
   memory {

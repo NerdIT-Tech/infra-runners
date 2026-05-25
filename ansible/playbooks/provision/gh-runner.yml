@@ -1,0 +1,8 @@
+---
+- name: Setup GitHub Runners on Proxmox VMs
+  ansible.builtin.include_role:
+    name: "{{ item }}"
+  loop:
+    - common
+    - docker
+    - github-runner

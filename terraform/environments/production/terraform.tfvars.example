@@ -1,0 +1,13 @@
+pm_api_url      = "https://proxmox.example.com:8006/api2/json"
+pm_user         = "terraform-prov@pve"
+pm_password     = "your-api-token-secret" # Or use TF_VAR_pm_password
+ssh_public_key  = "ssh-rsa AAAAB3Nza..."
+ssh_private_key = "-----BEGIN OPENSSH PRIVATE KEY-----..."
+
+runners = {
+  "gh-runner-01" = { node = "pve1" }
+  "gh-runner-02" = { node = "pve2" }
+}
+
+template_vmid  = 900
+target_storage = "local-lvm"

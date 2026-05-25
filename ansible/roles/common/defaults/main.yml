@@ -1,0 +1,23 @@
+---
+common_packages:
+  - curl
+  - git
+  - jq
+  - unzip
+  - build-essential
+  - libssl-dev
+  - libffi-dev
+  - python3-pip
+  - ca-certificates
+  - gnupg
+  - ufw
+  - acl
+
+common_node_version: "20"
+common_ufw_enabled: true
+common_ssh_port: "22"
+
+common_sysctl_settings:
+  fs.file-max: 2097152
+  net.core.somaxconn: 1024
+  vm.swappiness: 10

@@ -1,0 +1,11 @@
+---
+postgresql_packages:
+  - postgresql
+  - postgresql-contrib
+  - python3-psycopg2
+
+postgresql_port: 5432
+postgresql_db_user: "dbuser"
+postgresql_db_name: "dbname"
+postgresql_db_pass: "change_me"
+postgresql_db_schema: "public"

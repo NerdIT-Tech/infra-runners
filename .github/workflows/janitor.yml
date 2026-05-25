@@ -1,0 +1,25 @@
+name: Infrastructure Janitor
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # Run at 02:00 UTC every day
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  cleanup:
+    name: Background Cleanup
+    runs-on: self-hosted
+    env:
+      PROXMOX_HOST: ${{ secrets.PROXMOX_HOST }}
+      PROXMOX_USER: ${{ secrets.PROXMOX_USER }}
+      PROXMOX_TOKEN: ${{ secrets.PROXMOX_TOKEN }}
+      PROXMOX_PASSWORD: ${{ secrets.PROXMOX_PASSWORD }} # Needed for some Ansible modules
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Janitor
+        run: |
+          cd ansible
+          export ANSIBLE_HOST_KEY_CHECKING=False
+          ansible-playbook playbooks/janitor.yml

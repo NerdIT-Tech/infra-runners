@@ -1,0 +1,4 @@
+---
+- name: Run service-specific provision
+  ansible.builtin.include_tasks:
+    file: "{{ org.service }}.yml"

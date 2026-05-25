@@ -25,15 +25,11 @@ variable "ssh_private_key" {
 }
 
 variable "runner_count" {
-  type    = number
-  default = 3
-  validation {
-    condition     = var.runner_count >= 1
-    error_message = "At least one runner must be maintained to avoid breaking the IaC pipeline."
-  }
+  type        = number
+  description = "Number of runners to deploy"
+  default     = 1
 }
 
-# Default infrastructure settings
 variable "proxmox_nodes" {
   type        = list(string)
   description = "List of Proxmox nodes for HA distribution"
@@ -47,7 +43,7 @@ variable "template_vmid" {
 
 variable "pool" {
   type    = string
-  default = "infra"
+  default = "infra-staging"
 }
 
 variable "target_storage" {
@@ -55,3 +51,7 @@ variable "target_storage" {
   default = "local-lvm"
 }
 
+variable "repository" {
+  type        = string
+  description = "GitHub repository for the runners (e.g. org/repo)"
+}

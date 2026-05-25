@@ -1,0 +1,26 @@
+---
+- name: "Log quiesce for {{ inventory_hostname }}"
+  debug:
+    msg: "Quiescing GitHub Runner {{ inventory_hostname }} (VMID: {{ org.vmid }}) on node {{ org.node }}"
+
+# ---------------------------------------------------------------
+# Graceful Unregistration via Role Teardown
+# ---------------------------------------------------------------
+- name: Run GitHub Runner Teardown
+  ansible.builtin.include_tasks:
+    file: "../../roles/github-runner/tasks/teardown.yml"
+  vars:
+    github_org: "{{ lookup('env', 'GH_ORG') }}"
+    github_pat: "{{ lookup('env', 'GH_PAT') }}"
+    # Ensure role defaults are available if not already loaded
+    github_runner_user: "runner"
+    github_runner_dir: "/home/runner/actions-runner"
+
+- name: Stop GitHub runner auto-registration service (if present)
+  systemd:
+    name: github-runner-register
+    state: stopped
+    enabled: false
+  register: stop_service
+  failed_when: false
+  become: true
