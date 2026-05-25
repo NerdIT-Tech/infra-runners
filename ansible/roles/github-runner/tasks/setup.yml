@@ -58,7 +58,7 @@
 
     - name: Configure runner
       become_user: "{{ github_runner_user }}"
-      command:
+      ansible.builtin.command:
         cmd: >
           ./config.sh
           --url {{ github_url }}

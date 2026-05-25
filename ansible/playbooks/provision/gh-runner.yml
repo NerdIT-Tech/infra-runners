@@ -1,12 +1,8 @@
 ---
 - name: Setup GitHub Runners on Proxmox VMs
-  hosts: github_runners
-  become: true
-  serial: 1
-  any_errors_fatal: true
-  max_fail_percentage: 0
-  
-  roles:
+  ansible.builtin.include_role:
+    name: "{{ item }}"
+  loop:
     - common
     - docker
     - github-runner

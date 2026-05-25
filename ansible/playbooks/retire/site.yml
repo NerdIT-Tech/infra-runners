@@ -20,10 +20,12 @@
       when: retire_playbook.stat.exists
 
     - name: Ensure VM is stopped before deletion
-      proxmox_kvm:
+      community.proxmox.proxmox_kvm:
         api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
-        api_user: "{{ lookup('env', 'PROXMOX_USER') }}"
-        api_password: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
+        api_user: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[0] }}"
+        api_token_id: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[1] }}"
+        api_token_secret: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
+        api_password: ""
         vmid: "{{ org['org:vmid'] }}"
         node: "{{ org['org:node'] }}"
         state: stopped
@@ -31,10 +33,12 @@
       failed_when: false
 
     - name: Delete VM from Proxmox
-      proxmox_kvm:
+      community.proxmox.proxmox_kvm:
         api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
-        api_user: "{{ lookup('env', 'PROXMOX_USER') }}"
-        api_password: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
+        api_user: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[0] }}"
+        api_token_id: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[1] }}"
+        api_token_secret: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
+        api_password: ""
         vmid: "{{ org['org:vmid'] }}"
         node: "{{ org['org:node'] }}"
         state: absent
@@ -42,19 +46,19 @@
 
     - name: List Proxmox backups for VM
       uri:
-        url: "https://{{ lookup('env', 'PROXMOX_HOST') }}:{{ lookup('env', 'PROXMOX_PORT') }}/api2/json/nodes/{{ org['org:node'] }}/storage/local/content"
+        url: "https://{{ lookup('env', 'PROXMOX_HOST') }}:8006/api2/json/nodes/{{ org['org:node'] }}/storage/local/content"
         method: GET
         headers:
-          Authorization: "PVEAPIToken={{ lookup('env', 'PROXMOX_USER') }}={{ lookup('env', 'PROXMOX_TOKEN') }}"
+          Authorization: "PVEAPIToken={{ lookup('env', 'PROXMOX_USER') }}={{ lookup('env', 'PROXMOX_PASSWORD') }}"
         validate_certs: false
       register: backup_list
 
     - name: Delete backups belonging to this VM
       uri:
-        url: "https://{{ lookup('env', 'PROXMOX_HOST') }}:{{ lookup('env', 'PROXMOX_PORT') }}/api2/json/nodes/{{ org['org:node'] }}/storage/local/content/{{ item.volid }}"
+        url: "https://{{ lookup('env', 'PROXMOX_HOST') }}:8006/api2/json/nodes/{{ org['org:node'] }}/storage/local/content/{{ item.volid }}"
         method: DELETE
         headers:
-          Authorization: "PVEAPIToken={{ lookup('env', 'PROXMOX_USER') }}={{ lookup('env', 'PROXMOX_TOKEN') }}"
+          Authorization: "PVEAPIToken={{ lookup('env', 'PROXMOX_USER') }}={{ lookup('env', 'PROXMOX_PASSWORD') }}"
         validate_certs: false
       loop: "{{ backup_list.json.data | selectattr('vmid', 'equalto', org['org:vmid'] | int) | list }}"
       when: backup_list.json.data is defined

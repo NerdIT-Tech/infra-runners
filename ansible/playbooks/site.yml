@@ -3,72 +3,73 @@
   hosts: all
   gather_facts: false
   tags: [always]
-  block:
-    - name: Get all Proxmox nodes
-      uri:
-        url: "{{ api_uri }}/nodes"
-        method: GET
-        headers:
-          Authorization: "{{ authorization }}"
-        validate_certs: "{{ validate_certs }}"
-      register: nodes_res
-
-    - name: Get all VMs on each node
-      uri:
-        url: "{{ api_uri }}/nodes/{{ item.node }}/qemu"
-        method: GET
-        headers:
-          Authorization: "{{ authorization }}"
-        validate_certs: "{{ validate_certs }}"
-      loop: "{{ nodes_res.json.data }}"
+  tasks:
+    - name: Get all VMs from Proxmox
+      community.proxmox.proxmox_vm_info:
+        api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
+        api_user: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[0] }}"
+        api_token_id: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[1] }}"
+        api_token_secret: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
+        api_password: ""
+        validate_certs: false
       register: vms_res
+      delegate_to: localhost
+      run_once: true
 
-    - name: Normalize Proxmox tags into structured org:* metadata
+    - name: Build VM metadata
       ansible.builtin.set_fact:
         vm_metadata: >-
           {{
-            (vm_metadata | default({})) |
-            combine({
-              item.name: dict(
-                item.tags
-                | default("")
-                | split(",")
-                | map('regex_replace', '^(.*)=(.*)$', '\\1:\\2')
-                | map('split', ':')
-                | list
-              )
-            })
+            vm_metadata | default({})
+            | combine({
+                item.name: dict(
+                  item.tags
+                  | split(';')
+                  | select('match', '^org_')
+                  | map('regex_replace', '^org_', '')
+                  | map('split', '_', 1)
+                )
+              })
           }}
-      loop: "{{ vms_res.results | map(attribute='json.data') | flatten }}"
-      loop_control:
-        label: "{{ item.name }}"
+      loop: "{{ vms_res.proxmox_vms }}"
+      delegate_to: localhost
+      when:
+        - item.tags is defined
+        - (
+            item.tags
+            | split(';')
+            | select('match', '^org_')
+            | list
+            | length
+          ) > 0
 
     - name: Attach metadata to hostvars
       ansible.builtin.set_fact:
         org: "{{ vm_metadata[inventory_hostname] }}"
-      when: vm_metadata[inventory_hostname] is defined
+      when:
+        - vm_metadata is defined
+        - inventory_hostname in vm_metadata
 
-  vars:
-    authorization: "PVEAPIToken={{ lookup('env', 'PROXMOX_USER') }}={{ lookup('env', 'PROXMOX_TOKEN') }}"
-    validate_certs: false
-    api_uri: "https://{{ lookup('env', 'PROXMOX_HOST') }}:{{ lookup('env', 'PROXMOX_PORT') }}/api2/json"
+    - name: Lifecycle | Provision
+      ansible.builtin.include_tasks: provision/site.yml
+      when: >
+        org is defined and (
+          org['managed-by'] == 'terraform' or
+          org['created-at'] is defined
+        )
 
-- name: Lifecycle | Provision
-  import_playbook: provision/site.yml
-  when: >
-    org is defined and (
-      org['org:managed-by'] == 'terraform' or
-      org['org:created-at'] is defined
-    )
+    - name: Lifecycle | Quiesce
+      ansible.builtin.include_tasks: quiesce/site.yml
+      when: >
+        org is defined and (
+          org['cleanup-policy'] == 'ephemeral' and
+          org['expires-at'] is defined and
+          org['expires-at'] < ansible_date_time.iso8601
+        )
 
-- name: Lifecycle | Janitor (Background Reaper)
-  import_playbook: maintenance/janitor.yml
-  when: >
-    org is defined and (
-      org['org:cleanup-policy'] == 'ephemeral' or
-      (org['org:expires-at'] | default('9999-01-01')) < ansible_date_time.iso8601
-    )
-
-- name: Lifecycle | Retire
-  import_playbook: retire/site.yml
-  when: org is defined and org['org:cleanup'] == 'true'
+    - name: Lifecycle | Retire
+      ansible.builtin.include_tasks: retire/site.yml
+      when: org is defined and (
+          org['cleanup'] is defined and
+          org['cleanup'] == 'true'
+        )

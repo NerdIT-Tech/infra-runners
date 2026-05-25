@@ -1,13 +1,4 @@
 ---
-- name:
-  hosts: all
-  gather_facts: false
-  tasks:
-    - name: Check for service-specific quiesce playbook
-      stat:
-        path: "{{ playbook_dir }}/{{ org['org:service'] }}.yml"
-      register: quiesce_playbook
-
-    - name: Run service-specific quiesce
-      import_playbook: "{{ org['org:service'] }}.yml"
-      when: quiesce_playbook.stat.exists
+- name: Run service-specific provision
+  ansible.builtin.include_tasks:
+    file: "{{ org.service }}.yml"
