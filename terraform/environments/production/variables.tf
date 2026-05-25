@@ -27,13 +27,13 @@ variable "ssh_private_key" {
 variable "runner_count" {
   type        = number
   description = "Number of runners to deploy"
-  default     = 3
+  default     = 1
 }
 
 variable "proxmox_nodes" {
   type        = list(string)
   description = "List of Proxmox nodes for distribution"
-  default     = ["proxmoxnode01", "proxmoxnode02", "proxmoxnode03"]
+  default     = ["proxmoxnode01"]
 }
 
 variable "template_vmid" {
@@ -49,4 +49,9 @@ variable "pool" {
 variable "target_storage" {
   type    = string
   default = "local-lvm"
+}
+
+variable "repository" {
+  type        = string
+  description = "GitHub repository for the runners (e.g. org/repo)"
 }

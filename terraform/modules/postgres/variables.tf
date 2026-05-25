@@ -1,6 +1,6 @@
-variable "runner_name" {
+variable "name" {
   type        = string
-  description = "Hostname for the runner VM"
+  description = "Hostname for the database VM"
 }
 
 variable "proxmox_node" {
@@ -10,7 +10,7 @@ variable "proxmox_node" {
 
 variable "vmid" {
   type        = number
-  description = "Optional VMID for the runner. If 0, Proxmox will auto-assign."
+  description = "Optional VMID for the database VM. If 0, Proxmox will auto-assign."
   default     = 0
 }
 

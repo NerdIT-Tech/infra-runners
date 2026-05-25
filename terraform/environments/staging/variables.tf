@@ -50,3 +50,8 @@ variable "target_storage" {
   type    = string
   default = "local-lvm"
 }
+
+variable "repository" {
+  type        = string
+  description = "GitHub repository for the runners (e.g. org/repo)"
+}

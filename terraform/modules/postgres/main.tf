@@ -1,6 +1,6 @@
-resource "proxmox_virtual_environment_vm" "runner" {
-  name        = var.runner_name
-  description = "Managed by Terraform - GitHub Actions Runner"
+resource "proxmox_virtual_environment_vm" "postgres" {
+  name        = var.name
+  description = "Managed by Terraform - PostgreSQL Database"
   tags        = [for k, v in merge(var.tags, local.service_tag) : "${k}:${v}"]
 
   vm_id     = var.vmid != 0 ? var.vmid : null

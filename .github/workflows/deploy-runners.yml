@@ -35,15 +35,15 @@ jobs:
           TF_DB_NAME: ${{ vars.TF_DB_NAME }}
           TF_STATE_CONN_VAR: ${{ vars.TF_STATE_CONN }}
         run: |
-          cd terraform
+          cd terraform/production
           export TF_STATE_CONN=$(echo $TF_STATE_CONN_VAR | envsubst)
           terraform init -backend-config="conn_str=$TF_STATE_CONN"
 
       - name: Terraform Format check
-        run: cd terraform && terraform fmt -check
+        run: cd terraform/production && terraform fmt -check
 
       - name: Terraform Validate
-        run: cd terraform && terraform validate
+        run: cd terraform/production && terraform validate
 
       - name: Terraform Plan
         id: plan
@@ -53,6 +53,7 @@ jobs:
           TF_VAR_pm_password: ${{ secrets.PROXMOX_PASSWORD }}
           TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
           TF_VAR_ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          TF_VAR_repository: ${{ vars.GITHUB_REPOSITORY }}
         run: |
           cd terraform
           terraform plan -no-color -out=tfplan > plan_output.txt
@@ -143,7 +144,7 @@ jobs:
           TF_DB_NAME: ${{ vars.TF_DB_NAME }}
           TF_STATE_CONN_VAR: ${{ vars.TF_STATE_CONN }}
         run: |
-          cd terraform
+          cd terraform/production
           export TF_STATE_CONN=$(echo "$TF_STATE_CONN_VAR" | envsubst)
           terraform init -backend-config="conn_str=$TF_STATE_CONN"
 
@@ -175,7 +176,7 @@ jobs:
           TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
           TF_VAR_ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
-          cd terraform
+          cd terraform/production
           # If we modified state, we need a fresh apply without the old tfplan
           if [ ! -z "${{ needs.plan.outputs.destroy_list }}" ]; then
             terraform apply -auto-approve
@@ -186,7 +187,7 @@ jobs:
       - name: Capture Outputs
         id: output
         run: |
-          cd terraform
+          cd terraform/production
           RUNNER_DETAILS=$(terraform output -json runner_details | jq -c .)
           echo "runner_details=$RUNNER_DETAILS" >> $GITHUB_OUTPUT
 

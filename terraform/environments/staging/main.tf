@@ -1,13 +1,6 @@
 locals {
-  common_tags = {
-    "org:service"        = "gh-runner"
-    "org:environment"    = "stg"
-    "org:owner"          = "platform-eng"
-    "org:project"        = "infra-runners"
-    "org:cleanup-policy" = "ephemeral"
-    "org:managed-by"     = "terraform"
-    "org:repo"           = "https://github.com/example/infra-runners"
-    "org:created-at"     = formatdate("YYYY-MM-DD", timestamp())
+  environment_tag = {
+    "org:environment" = "stg"
   }
 }
 
@@ -23,5 +16,12 @@ module "gh_runners" {
   ssh_public_key  = var.ssh_public_key
   ssh_private_key = var.ssh_private_key
 
-  tags = local.common_tags
+  tags = merge(local.environment_tag, {
+    "org:owner"          = "platform-eng"
+    "org:project"        = "infra-runners"
+    "org:cleanup-policy" = "ephemeral"
+    "org:managed-by"     = "terraform"
+    "org:repo"           = "https://github.com/${var.repository}"
+    "org:created-at"     = formatdate("YYYY-MM-DD", timestamp())
+  })
 }
