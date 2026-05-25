@@ -134,9 +134,24 @@ jobs:
         with:
           name: tf-artifacts-${{ github.sha }}
           path: terraform/environments/production
-      
+
+      - name: Terraform Init
+        env:
+          TF_DB_USER: ${{ vars.TF_DB_USER }}
+          TF_DB_PASSWORD: ${{ secrets.TF_DB_PASSWORD }}
+          TF_DB_HOST: ${{ vars.TF_DB_HOST }}
+          TF_DB_PORT: ${{ vars.TF_DB_PORT }}
+          TF_DB_NAME: ${{ vars.TF_DB_NAME }}
+          TF_STATE_CONN_VAR: ${{ vars.TF_STATE_CONN }}
+        run: |
+          cd terraform/environments/production
+          export TF_STATE_CONN=$(echo "$TF_STATE_CONN_VAR" | envsubst)
+          terraform init -backend-config="conn_str=$TF_STATE_CONN"
+
       - name: Show plan output for debugging
-        run: terraform show terraform/environments/production/tfplan
+        run: |
+          cd terraform/environments/production
+          terraform show tfplan
 
       - name: Capture Outputs
         id: output
