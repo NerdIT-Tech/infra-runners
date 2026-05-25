@@ -116,7 +116,7 @@ jobs:
   apply:
     name: Terraform Apply
     needs: plan
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    #if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: self-hosted
     outputs:
       runner_details: ${{ steps.output.outputs.runner_details }}
@@ -134,84 +134,8 @@ jobs:
         with:
           name: tf-artifacts-${{ github.sha }}
           path: .
-
-      - name: Terraform Init
-        env:
-          TF_DB_USER: ${{ vars.TF_DB_USER }}
-          TF_DB_PASSWORD: ${{ secrets.TF_DB_PASSWORD }}
-          TF_DB_HOST: ${{ vars.TF_DB_HOST }}
-          TF_DB_PORT: ${{ vars.TF_DB_PORT }}
-          TF_DB_NAME: ${{ vars.TF_DB_NAME }}
-          TF_STATE_CONN_VAR: ${{ vars.TF_STATE_CONN }}
-        run: |
-          cd terraform/environments/production
-          export TF_STATE_CONN=$(echo "$TF_STATE_CONN_VAR" | envsubst)
-          terraform init -backend-config="conn_str=$TF_STATE_CONN"
-
-      - name: Intercept Destructions
-        if: needs.plan.outputs.destroy_list != ''
-        env:
-          PROXMOX_HOST: ${{ vars.PROXMOX_HOST }}
-          PROXMOX_USER: ${{ secrets.PROXMOX_USER }}
-          PROXMOX_PASSWORD: ${{ secrets.PROXMOX_PASSWORD }}
-          GH_ORG: ${{ secrets.GH_ORG }}
-          GH_PAT: ${{ secrets.GH_RUNNER_PAT }}
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          TF_DB_USER: ${{ vars.TF_DB_USER }}
-          TF_DB_PASSWORD: ${{ secrets.TF_DB_PASSWORD }}
-          TF_DB_HOST: ${{ vars.TF_DB_HOST }}
-          TF_DB_PORT: ${{ vars.TF_DB_PORT }}
-          TF_DB_NAME: ${{ vars.TF_DB_NAME }}
-          TF_STATE_CONN_VAR: ${{ vars.TF_STATE_CONN }}
-        run: |
-          echo "$SSH_PRIVATE_KEY" > runner_key
-          chmod 600 runner_key
-          export ANSIBLE_HOST_KEY_CHECKING=False
-          
-          cd terraform/environments/production
-          export TF_STATE_CONN=$(echo "$TF_STATE_CONN_VAR" | envsubst)
-          terraform init -backend-config="conn_str=$TF_STATE_CONN"
-          RUNNER_DETAILS=$(terraform output -json runner_details)
-          
-          cd ../../../ansible
-          IFS=',' read -ra ADDR <<< "${{ needs.plan.outputs.destroy_list }}"
-          for i in "${ADDR[@]}"; do
-            echo "Gracefully quiescing $i..."
-            # Extract IP from runner_details
-            RUNNER_IP=$(echo "$RUNNER_DETAILS" | jq -r --arg NAME "$i" '.[$NAME].ip')
-            
-            if [ "$RUNNER_IP" != "null" ]; then
-              # Create a temporary inventory for this one host
-              echo "$i ansible_host=$RUNNER_IP ansible_user=runner" > temp_host.ini
-              
-              ansible-playbook -i temp_host.ini playbooks/site.yml \
-                --private-key ../runner_key \
-                -e "lifecycle_action=quiesce" \
-                -e "github_pat=$GH_PAT" \
-                -e "github_org=$GH_ORG" \
-                -e "project_root=$GITHUB_WORKSPACE"
-            else
-              echo "Warning: Could not find IP for $i in current state. Skipping graceful unregistration."
-            fi
-          done
-          rm ../runner_key
-
-      - name: Terraform Apply
-        env:
-          TF_VAR_pm_host: ${{ vars.PROXMOX_HOST }}
-          TF_VAR_pm_user: ${{ secrets.PROXMOX_USER }}
-          TF_VAR_pm_password: ${{ secrets.PROXMOX_PASSWORD }}
-          TF_VAR_ssh_public_key: ${{ secrets.SSH_PUBLIC_KEY }}
-          TF_VAR_ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          cd terraform/environments/production
-          # If we modified state, we need a fresh apply without the old tfplan
-          if [ ! -z "${{ needs.plan.outputs.destroy_list }}" ]; then
-            terraform apply -auto-approve
-          else
-            terraform apply -auto-approve tfplan
-          fi
-
+      - name: "DEBUG: List Downloaded Files"
+        run: ls -la
       - name: Capture Outputs
         id: output
         run: |
