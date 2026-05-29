@@ -1,0 +1,4 @@
+---
+podman_registries:
+  - docker.io
+  - quay.io

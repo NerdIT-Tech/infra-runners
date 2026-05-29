@@ -13,9 +13,12 @@ github_account_type: "org"
 github_org: "NerdIT-Tech"
 github_pat: "{{ lookup('env', 'GH_PAT') }}" # Example of getting from env
 
-# Docker Configuration
+# Docker & Podman Configuration
 docker_users:
   - runner
+podman_registries:
+  - docker.io
+  - quay.io
 
 # PostgreSQL Configuration (Overrides)
 # postgresql_db_user: "..."

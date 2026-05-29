@@ -15,7 +15,10 @@
   copy:
     dest: /etc/containers/registries.conf
     content: |
-      unqualified-search-registries = ["docker.io", "quay.io"]
+      unqualified-search-registries = {{ podman_registries | to_json }}
+
+      [[registry]]
+      location = "docker.io"
   become: true
 
 - name: Ensure subuid/subgid mapping for runner user
