@@ -260,8 +260,7 @@ jobs:
           cd ansible
           echo "$SSH_PRIVATE_KEY" > runner_key
           chmod 600 runner_key
-          
-          # SRE Best Practice: Use a pipelined approach for Ansible in CI
+
           export ANSIBLE_HOST_KEY_CHECKING=False
           export ANSIBLE_FORCE_COLOR=True
           

@@ -1,0 +1,37 @@
+name: Ansible CI
+
+on:
+  push:
+    paths:
+      - 'ansible/**'
+    branches:
+      - main
+  pull_request:
+    paths:
+      - 'ansible/**'
+
+jobs:
+  ansible-quality-gate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ansible
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Syntax Check
+        run: |
+          find . -maxdepth 2 -name "*.yml" -o -name "*.yaml" | while read playbook; do
+            ansible-playbook --syntax-check ""
+          done
+
+      - name: Ansible Lint
+        run: ansible-lint .
