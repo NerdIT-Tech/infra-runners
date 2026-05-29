@@ -39,6 +39,16 @@ jobs:
           export TF_STATE_CONN=$(echo "$TF_STATE_CONN_VAR" | envsubst)
           terraform init -backend-config="conn_str=$TF_STATE_CONN"
 
+      - name: Install Dependencies
+        run: |
+          if ! command -v ansible-playbook &> /dev/null || ! command -v envsubst &> /dev/null || ! command -v jq &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ansible gettext jq python3-pip
+          fi
+          # Ensure Python dependencies for community.proxmox are present
+          pip3 install --user proxmoxer requests
+          ansible-galaxy collection install community.proxmox
+
       - name: Mark for Decommissioning
         env:
           GH_PAT: ${{ secrets.GH_RUNNER_PAT }}

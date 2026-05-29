@@ -152,8 +152,10 @@ jobs:
         run: |
           if ! command -v ansible-playbook &> /dev/null || ! command -v envsubst &> /dev/null || ! command -v jq &> /dev/null; then
             sudo apt-get update
-            sudo apt-get install -y ansible gettext jq
+            sudo apt-get install -y ansible gettext jq python3-pip
           fi
+          # Ensure Python dependencies for community.proxmox are present
+          pip3 install --user proxmoxer requests
           ansible-galaxy collection install community.proxmox
 
       - name: Intercept Destructions
@@ -265,8 +267,10 @@ jobs:
         run: |
           if ! command -v ansible-playbook &> /dev/null || ! command -v envsubst &> /dev/null || ! command -v jq &> /dev/null; then
             sudo apt-get update
-            sudo apt-get install -y ansible gettext jq
+            sudo apt-get install -y ansible gettext jq python3-pip
           fi
+          # Ensure Python dependencies for community.proxmox are present
+          pip3 install --user proxmoxer requests
           ansible-galaxy collection install community.proxmox
 
       - name: Run Ansible

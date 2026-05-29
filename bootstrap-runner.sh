@@ -45,6 +45,13 @@ echo "VM is up at $RUNNER_IP"
 
 # 3. Ansible Configuration
 echo "Step 2: Configuring Runner via Ansible..."
+
+# Check for Ansible dependencies
+if ! python3 -c "import proxmoxer" &> /dev/null; then
+    echo "Installing missing Python dependencies (proxmoxer, requests)..."
+    pip3 install --user proxmoxer requests
+fi
+
 cd ../ansible
 
 # Create temporary inventory
