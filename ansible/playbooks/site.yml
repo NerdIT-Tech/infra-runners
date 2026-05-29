@@ -4,11 +4,16 @@
   gather_facts: false
   tags: [always]
   tasks:
+    - name: Parse Proxmox Credentials
+      ansible.builtin.set_fact:
+        _pve_user: "{{ lookup('env', 'PROXMOX_USER').split('!') | first }}"
+        _pve_token_id: "{{ lookup('env', 'PROXMOX_USER').split('!')[1] if lookup('env', 'PROXMOX_USER').split('!') | length > 1 else '' }}"
+
     - name: Get all VMs from Proxmox
       community.proxmox.proxmox_vm_info:
         api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
-        api_user: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[0] }}"
-        api_token_id: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[1] }}"
+        api_user: "{{ _pve_user }}"
+        api_token_id: "{{ _pve_token_id }}"
         api_token_secret: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
         api_password: ""
         validate_certs: false
