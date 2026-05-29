@@ -4,5 +4,5 @@
     name: "{{ item }}"
   loop:
     - common
-    - docker
+    - podman
     - github-runner
