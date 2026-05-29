@@ -262,7 +262,10 @@ jobs:
           echo "" >> hosts.ini
           echo "[github_runners:vars]" >> hosts.ini
           echo "ansible_user=runner" >> hosts.ini
+<<<<<<< refactor/make-functional
 
+=======
+>>>>>>> main
       - name: Run Ansible
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
