@@ -1,0 +1,29 @@
+---
+- name: Install Podman and dependencies
+  apt:
+    name:
+      - podman
+      - buildah
+      - skopeo
+      - slirp4netns
+      - fuse-overlayfs
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Configure Podman for rootless usage
+  copy:
+    dest: /etc/containers/registries.conf
+    content: |
+      unqualified-search-registries = ["docker.io", "quay.io"]
+  become: true
+
+- name: Ensure subuid/subgid mapping for runner user
+  lineinfile:
+    path: "{{ item }}"
+    line: "runner:100000:65536"
+    state: present
+  loop:
+    - /etc/subuid
+    - /etc/subgid
+  become: true
