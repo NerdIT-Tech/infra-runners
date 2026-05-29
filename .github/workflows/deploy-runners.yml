@@ -235,6 +235,9 @@ jobs:
       TF_DB_PASSWORD: ${{ secrets.TF_DB_PASSWORD }}
       TF_DB_PORT: ${{ vars.TF_DB_PORT }}
       TF_DB_SCHEMA: "terraform"
+      PROXMOX_HOST: ${{ vars.PROXMOX_HOST }}
+      PROXMOX_USER: ${{ secrets.PROXMOX_USER }}
+      PROXMOX_PASSWORD: ${{ secrets.PROXMOX_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
