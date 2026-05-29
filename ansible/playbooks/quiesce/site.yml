@@ -38,8 +38,8 @@
 - name: Default quiesce — stop VM gracefully
   community.proxmox.proxmox_kvm:
     api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
-    api_user: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[0] }}"
-    api_token_id: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[1] }}"
+    api_user: "{{ _pve_user }}"
+    api_token_id: "{{ _pve_token_id }}"
     api_token_secret: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
     api_password: ""
     vmid: "{{ org['vmid'] }}"
@@ -51,8 +51,8 @@
 - name: Tag for retirement
   community.proxmox.proxmox_kvm:
     api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
-    api_user: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[0] }}"
-    api_token_id: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[1] }}"
+    api_user: "{{ _pve_user }}"
+    api_token_id: "{{ _pve_token_id }}"
     api_token_secret: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
     api_password: ""
     vmid: "{{ org['vmid'] }}"

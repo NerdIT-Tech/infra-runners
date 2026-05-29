@@ -17,26 +17,28 @@
 - name: Ensure VM is stopped before deletion
   community.proxmox.proxmox_kvm:
     api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
-    api_user: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[0] }}"
-    api_token_id: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[1] }}"
+    api_user: "{{ _pve_user }}"
+    api_token_id: "{{ _pve_token_id }}"
     api_token_secret: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
     api_password: ""
     vmid: "{{ org['org:vmid'] }}"
     node: "{{ org['org:node'] }}"
     state: stopped
+  delegate_to: localhost
   register: stop_result
   failed_when: false
 
 - name: Delete VM from Proxmox
   community.proxmox.proxmox_kvm:
     api_host: "{{ lookup('env', 'PROXMOX_HOST') }}"
-    api_user: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[0] }}"
-    api_token_id: "{{ (lookup('env', 'PROXMOX_USER') | split('!'))[1] }}"
+    api_user: "{{ _pve_user }}"
+    api_token_id: "{{ _pve_token_id }}"
     api_token_secret: "{{ lookup('env', 'PROXMOX_PASSWORD') }}"
     api_password: ""
     vmid: "{{ org['org:vmid'] }}"
     node: "{{ org['org:node'] }}"
     state: absent
+  delegate_to: localhost
   register: deletion_result
 
 - name: List Proxmox backups for VM
@@ -46,6 +48,7 @@
     headers:
       Authorization: "PVEAPIToken={{ lookup('env', 'PROXMOX_USER') }}={{ lookup('env', 'PROXMOX_PASSWORD') }}"
     validate_certs: false
+  delegate_to: localhost
   register: backup_list
 
 - name: Delete backups belonging to this VM
@@ -55,5 +58,6 @@
     headers:
       Authorization: "PVEAPIToken={{ lookup('env', 'PROXMOX_USER') }}={{ lookup('env', 'PROXMOX_PASSWORD') }}"
     validate_certs: false
+  delegate_to: localhost
   loop: "{{ backup_list.json.data | selectattr('vmid', 'equalto', org['org:vmid'] | int) | list }}"
   when: backup_list.json.data is defined
