@@ -116,7 +116,6 @@ jobs:
   apply:
     name: Terraform Apply
     needs: plan
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: self-hosted
     outputs:
       runner_details: ${{ steps.output.outputs.runner_details }}
@@ -147,17 +146,6 @@ jobs:
           cd terraform/environments/production
           export TF_STATE_CONN=$(echo "$TF_STATE_CONN_VAR" | envsubst)
           terraform init -backend-config="conn_str=$TF_STATE_CONN"
-
-      - name: Install Dependencies
-        run: |
-          if ! command -v ansible-playbook &> /dev/null || ! command -v envsubst &> /dev/null || ! command -v jq &> /dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y ansible gettext jq python3-pip
-          fi
-          # Ensure Python dependencies for community.proxmox are present
-          pip3 install --user proxmoxer requests
-          ansible-galaxy collection install community.proxmox
-
       - name: Intercept Destructions
         if: needs.plan.outputs.destroy_list != ''
         env:
@@ -205,7 +193,6 @@ jobs:
             fi
           done
           rm ../runner_key
-
       - name: Terraform Apply
         env:
           TF_VAR_pm_host: ${{ vars.PROXMOX_HOST }}
@@ -262,10 +249,6 @@ jobs:
           echo "" >> hosts.ini
           echo "[github_runners:vars]" >> hosts.ini
           echo "ansible_user=runner" >> hosts.ini
-<<<<<<< refactor/make-functional
-
-=======
->>>>>>> main
       - name: Run Ansible
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
