@@ -26,6 +26,10 @@
   register: build_res
   changed_when: "'Finished' in build_res.stdout"
 
+- name: debug url
+  debug:
+    msg: "GitHub URL: https://api.github.com/orgs/{{ github_org }}/actions/runners/registration-token"
+
 - name: Get registration token from GitHub (Org)
   uri:
     url: "https://api.github.com/orgs/{{ github_org }}/actions/runners/registration-token"
