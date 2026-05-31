@@ -5,7 +5,7 @@ set -e
 RUNNER_NAME=${RUNNER_NAME:-$(hostname)}
 GITHUB_URL=${GITHUB_URL}
 GITHUB_TOKEN=${GITHUB_TOKEN}
-LABELS=${LABELS:-"podman,container"}
+LABELS=${LABELS:-""}
 
 if [ -z "$GITHUB_URL" ] || [ -z "$GITHUB_TOKEN" ]; then
     echo "Error: GITHUB_URL and GITHUB_TOKEN must be set."

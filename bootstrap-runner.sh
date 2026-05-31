@@ -6,53 +6,64 @@ set -e
 
 echo "--- Proxmox GitHub Runner Bootstrap ---"
 
+# 0. Load .env file if it exists
+if [ -f .env ]; then
+    echo "Loading environment variables from .env..."
+    set -a
+    source .env
+    set +a
+fi
+
 # 1. Ensure Environment Variables are set
-if [[ -z "$PROXMOX_API_URL" || -z "$PROXMOX_USER" || -z "$PROXMOX_PASSWORD" || -z "$GH_PAT" || -z "$GH_ORG" ]]; then
+if [[ -z "$PROXMOX_HOST" || -z "$PROXMOX_USER" || -z "$PROXMOX_PASSWORD" || -z "$GH_PAT" || -z "$GH_ORG" ]]; then
     echo "Error: Missing environment variables."
-    echo "Please export: PROXMOX_API_URL, PROXMOX_USER, PROXMOX_PASSWORD, GH_PAT, GH_ORG"
+    echo "Please export: PROXMOX_HOST, PROXMOX_USER, PROXMOX_PASSWORD, GH_PAT, GH_ORG"
     exit 1
 fi
 
 # 2. Terraform Provisioning
-echo "Step 1: Provisioning VM via Terraform..."
-cd terraform
+#echo "Step 1: Provisioning VM via Terraform..."
+#cd terraform
 
 # Initialize with local state for bootstrap if DB isn't ready, 
 # but usually we assume the DB is ready from the 'bootstrap/db' step.
-terraform init -reconfigure
+#terraform init -reconfigure
 
 # Target ONLY the first runner to keep it simple
-RUNNER_NAME="gh-runner-01"
-echo "Targeting $RUNNER_NAME..."
+#RUNNER_NAME="gh-runner-01"
+#echo "Targeting $RUNNER_NAME..."
 
-terraform apply -auto-approve \
-    -var="pm_api_url=$PROXMOX_API_URL" \
-    -var="pm_user=$PROXMOX_USER" \
-    -var="pm_password=$PROXMOX_PASSWORD" \
-    -target=module.gh_runners[\"$RUNNER_NAME\"]
+#terraform apply -auto-approve \
+#    -var="pm_api_url=$PROXMOX_API_URL" \
+#    -var="pm_user=$PROXMOX_USER" \
+#    -var="pm_password=$PROXMOX_PASSWORD" \
+#    -target=module.gh_runners[\"$RUNNER_NAME\"]
 
 # Get the IP
-RUNNER_IP=$(terraform output -json runner_ips | jq -r ".\"$RUNNER_NAME\"")
+#RUNNER_IP=$(terraform output -json runner_ips | jq -r ".\"$RUNNER_NAME\"")
 
-RUNNER_IP="192.168.1.159"
+RUNNER_IP="192.168.1.161"
+RUNNER_NAME="gh-runner-prod-01"
 
-if [[ -z "$RUNNER_IP" || "$RUNNER_IP" == "null" ]]; then
-    echo "Error: Could not retrieve IP for $RUNNER_NAME. Is the VM up and got a DHCP lease?"
-    exit 1
-fi
+#if [[ -z "$RUNNER_IP" || "$RUNNER_IP" == "null" ]]; then
+#    echo "Error: Could not retrieve IP for $RUNNER_NAME. Is the VM up and got a DHCP lease?"
+#    exit 1
+#fi
 
-echo "VM is up at $RUNNER_IP"
+#echo "VM is up at $RUNNER_IP"
 
 # 3. Ansible Configuration
 echo "Step 2: Configuring Runner via Ansible..."
 
-# Check for Ansible dependencies
-if ! python3 -c "import proxmoxer" &> /dev/null; then
-    echo "Installing missing Python dependencies (proxmoxer, requests)..."
-    pip3 install --user proxmoxer requests
-fi
+#sudo python3 -m venv /usr/local/py-utils/venvs/ansible-core
 
-cd ../ansible
+# Check for Ansible dependencies
+#if ! python3 -c "import proxmoxer" &> /dev/null; then
+#    echo "Installing missing Python dependencies (proxmoxer, requests)..."
+#    python3 -m pip install --break-system-packages proxmoxer requests
+#fi
+
+cd ansible
 
 # Create temporary inventory
 cat <<EOT > bootstrap_hosts.ini
@@ -88,7 +99,8 @@ chmod 600 runner_key
 export ANSIBLE_HOST_KEY_CHECKING=False
 ansible-playbook -i bootstrap_hosts.ini playbooks/site.yml \
     --private-key runner_key \
-    --extra-vars "github_pat=$GH_PAT github_org=$GH_ORG"
+    --extra-vars "github_pat=$GH_PAT github_org=$GH_ORG" \
+    -vvvv
 
 echo "----------------------------------------"
 echo "SUCCESS: $RUNNER_NAME is now online and registered to $GH_ORG"
