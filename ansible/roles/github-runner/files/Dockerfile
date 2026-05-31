@@ -17,11 +17,11 @@ RUN dnf install -y \
     gettext \
     ansible \
     procps-ng \
+    dnf-plugins-core \
     && dnf clean all
 
 # 2. Install Terraform
-RUN mkdir -p /etc/dnf.repos.d && \
-    curl -fsSL https://rpm.releases.hashicorp.com/fedora/hashicorp.repo -o /etc/dnf.repos.d/hashicorp.repo \
+RUN dnf config-manager --add-repo https://rpm.releases.hashicorp.com/fedora/hashicorp.repo \
     && dnf install -y terraform \
     && dnf clean all
 
