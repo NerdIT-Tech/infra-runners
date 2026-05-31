@@ -1,4 +1,5 @@
 ---
+- debug: var=github_org
 - name: Create runner directory
   file:
     path: "{{ github_runner_dir }}"
@@ -21,20 +22,42 @@
 - name: Build Runner Image
   become_user: "{{ github_runner_user }}"
   command:
-    cmd: "podman build -t github-runner:latest ."
+    cmd: "podman build --format docker -t github-runner:latest ."
     chdir: "{{ github_runner_dir }}"
   register: build_res
   changed_when: "'Finished' in build_res.stdout"
+
+- name: debug url
+  debug:
+    msg: "GitHub URL: https://api.github.com/orgs/{{ github_org }}/actions/runners/registration-token"
 
 - name: Get registration token from GitHub (Org)
   uri:
     url: "https://api.github.com/orgs/{{ github_org }}/actions/runners/registration-token"
     method: POST
     headers:
-      Authorization: "token {{ github_pat }}"
+      Authorization: "Bearer {{ github_pat }}"
       Accept: "application/vnd.github+json"
     status_code: 201
-  register: registration_token_res
+  register: registration_token_res_org
+  no_log: false
+  when: github_account_type == "org"
+
+- name: Get registration token from GitHub (Repo)
+  uri:
+    url: "https://api.github.com/repos/{{ github_org }}/{{ github_repo }}/actions/runners/registration-token"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ github_pat }}"
+      Accept: "application/vnd.github+json"
+    status_code: 201
+  register: registration_token_res_repo
+  no_log: true
+  when: github_account_type == "repo"
+
+- name: Set registration token fact
+  set_fact:
+    registration_token: "{{ registration_token_res_org.json.token if github_account_type == 'org' else registration_token_res_repo.json.token }}"
   no_log: true
 
 - name: Create Systemd service for Runner Container
@@ -52,7 +75,7 @@
       ExecStartPre=-/usr/bin/podman rm gh-runner
       ExecStart=/usr/bin/podman run --name gh-runner \
         -e GITHUB_URL={{ github_url }} \
-        -e GITHUB_TOKEN={{ registration_token_res.json.token }} \
+        -e GITHUB_TOKEN={{ registration_token }} \
         -e RUNNER_NAME={{ github_runner_name }} \
         github-runner:latest
       Restart=always

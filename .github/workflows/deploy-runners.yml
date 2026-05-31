@@ -152,7 +152,8 @@ jobs:
           PROXMOX_HOST: ${{ vars.PROXMOX_HOST }}
           PROXMOX_USER: ${{ secrets.PROXMOX_USER }}
           PROXMOX_PASSWORD: ${{ secrets.PROXMOX_PASSWORD }}
-          GH_ORG: ${{ secrets.GH_ORG }}
+          # Failing to get org???
+          GH_ORG: ${{ vars.GH_ORG }}
           GH_PAT: ${{ secrets.GH_RUNNER_PAT }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           TF_DB_USER: ${{ vars.TF_DB_USER }}
@@ -225,11 +226,11 @@ jobs:
   configure:
     name: Ansible Configure
     needs: apply
-    #if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: self-hosted
     env:
       GH_PAT: ${{ secrets.GH_RUNNER_PAT }}
-      GH_ORG: ${{ secrets.GH_ORG }}
+      GH_ORG: ${{ vars.GH_ORG }}
       TF_DB_NAME: ${{ vars.TF_DB_NAME }}
       TF_DB_USER: ${{ vars.TF_DB_USER }}
       TF_DB_PASSWORD: ${{ secrets.TF_DB_PASSWORD }}

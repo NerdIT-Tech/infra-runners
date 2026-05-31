@@ -1,10 +1,33 @@
 ---
 - name: Ensure minimal dependencies are present
   apt:
-    name: "{{ common_packages }}"
+    name:
+      #- "{{ common_packages }}"
+      - cloud-guest-utils
+      - lvm2
     state: present
     update_cache: yes
   become: true
+
+- name: SRE | Auto-expand LVM and Filesystem
+  block:
+    - name: Grow the partition to fill the disk
+      command: growpart /dev/sda 3
+      register: growpart_res
+      failed_when: false
+      changed_when: growpart_res.rc == 0
+
+    - name: Resize Physical Volume
+      command: pvresize /dev/sda 3
+      when: growpart_res.rc == 0 or "NOCHANGE" in growpart_res.stdout
+      changed_when: true
+
+    - name: Extend Logical Volume to 100% FREE
+      community.general.lvol:
+        lv: /dev/ubuntu-vg/ubuntu-lv
+        size: +100%FREE
+        resizefs: yes
+      ignore_errors: true
 
 - name: Apply SRE Kernel Tuning
   sysctl:

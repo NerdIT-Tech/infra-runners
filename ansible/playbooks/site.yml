@@ -21,6 +21,12 @@
       delegate_to: localhost
       run_once: true
 
+    - name: Debug Proxmox VMs
+      ansible.builtin.debug:
+        msg: "{{ inventory_hostname }}"
+      delegate_to: localhost
+      run_once: true
+
     - name: Build VM metadata
       ansible.builtin.set_fact:
         vm_metadata: >-

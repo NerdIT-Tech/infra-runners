@@ -2,11 +2,13 @@
     "name": "infra-runners-dev",
     "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
     "features": {
-        "./features/xdg-utils": {},
+        //"./features/xdg-utils": {},
         "./features/gemini-persistence": {},
         "./features/podman-remote": {},
         "ghcr.io/devcontainers/features/terraform:1": {},
-        "ghcr.io/devcontainers-extra/features/ansible:2": {},
+        "ghcr.io/devcontainers-extra/features/ansible:2": {
+            "injections": "proxmoxer requests"
+        },
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/devcontainers/features/github-cli:1": {},
         "ghcr.io/devcontainers/features/powershell:2": {},
