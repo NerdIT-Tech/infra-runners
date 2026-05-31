@@ -1,8 +1,17 @@
 # SRE Optimized GitHub Actions Runner (Podman-native)
 FROM fedora:45
 
-# 1. Install core dependencies
-# We use Fedora for better Podman support and newer packages
+RUN sudo rpm --import https://apt.releases.hashicorp.com/gpg
+
+RUN sudo tee /etc/dnf.repos.d/hashicorp.repo <<EOF
+[hashicorp]
+name=HashiCorp Stable - $basearch
+baseurl=https://rpm.releases.hashicorp.com/RHEL/\$releasever/\$basearch/stable
+enabled=1
+gpgcheck=1
+gpgkey=https://apt.releases.hashicorp.com/gpg
+EOF
+    
 RUN dnf install -y \
     curl \
     git \
@@ -18,11 +27,7 @@ RUN dnf install -y \
     ansible \
     procps-ng \
     dnf-plugins-core \
-    && dnf clean all
-
-# 2. Install Terraform
-RUN dnf config-manager --add-repo https://rpm.releases.hashicorp.com/fedora/hashicorp.repo \
-    && dnf install -y terraform \
+    terrform \
     && dnf clean all
 
 # 3. Create runner user
