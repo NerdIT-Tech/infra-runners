@@ -35,7 +35,7 @@
       Accept: "application/vnd.github+json"
     status_code: 201
   register: registration_token_res_org
-  no_log: true
+  no_log: false
   when: github_account_type == "org"
 
 - name: Get registration token from GitHub (Repo)
