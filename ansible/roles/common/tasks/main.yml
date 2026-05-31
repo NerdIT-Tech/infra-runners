@@ -2,7 +2,7 @@
 - name: Ensure minimal dependencies are present
   apt:
     name:
-      - "{{ common_packages }}"
+      #- "{{ common_packages }}"
       - cloud-guest-utils
       - lvm2
     state: present
