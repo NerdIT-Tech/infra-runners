@@ -23,7 +23,7 @@
       changed_when: true
 
     - name: Extend Logical Volume to 100% FREE
-      lvextend:
+      community.general.lvol:
         lv: /dev/ubuntu-vg/ubuntu-lv
         size: +100%FREE
         resizefs: yes
