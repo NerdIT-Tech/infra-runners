@@ -152,6 +152,7 @@ jobs:
           PROXMOX_HOST: ${{ vars.PROXMOX_HOST }}
           PROXMOX_USER: ${{ secrets.PROXMOX_USER }}
           PROXMOX_PASSWORD: ${{ secrets.PROXMOX_PASSWORD }}
+          # Failing to get org???
           GH_ORG: ${{ vars.GH_ORG }}
           GH_PAT: ${{ secrets.GH_RUNNER_PAT }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}

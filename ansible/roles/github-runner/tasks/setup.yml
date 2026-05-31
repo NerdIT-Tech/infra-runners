@@ -1,4 +1,5 @@
 ---
+- debug: var=github_org
 - name: Create runner directory
   file:
     path: "{{ github_runner_dir }}"
