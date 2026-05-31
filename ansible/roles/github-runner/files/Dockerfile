@@ -1,7 +1,8 @@
 # SRE Optimized GitHub Actions Runner (Podman-native)
-FROM fedora:40
+FROM fedora:latest
 
 # 1. Install core dependencies
+# DNF5 is the new standard in Fedora 41+
 RUN dnf install -y \
     curl \
     git \
@@ -16,13 +17,12 @@ RUN dnf install -y \
     gettext \
     ansible \
     procps-ng \
-    dnf-plugins-core \
     && dnf clean all
 
 # 2. Install Terraform
-# We use the RHEL repository and hardcode the version to 9 as Fedora 40/39 specific repos are sometimes missing.
-# We use /etc/yum.repos.d as it is the standard path in Fedora/RHEL.
-RUN dnf config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo && \
+# We use the RHEL repository and hardcode the version to 9 as Fedora-specific repos are often missing for new releases.
+# DNF5 uses 'addrepo --from-repofile' instead of '--add-repo'.
+RUN dnf config-manager addrepo --from-repofile=https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo && \
     sed -i 's/\$releasever/9/g' /etc/yum.repos.d/hashicorp.repo && \
     dnf install -y terraform && \
     dnf clean all
