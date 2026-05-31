@@ -20,7 +20,8 @@ RUN dnf install -y \
     && dnf clean all
 
 # 2. Install Terraform
-RUN curl -fsSL https://rpm.releases.hashicorp.com/fedora/hashicorp.repo | tee /etc/dnf.repos.d/hashicorp.repo \
+RUN mkdir -p /etc/dnf.repos.d && \
+    curl -fsSL https://rpm.releases.hashicorp.com/fedora/hashicorp.repo -o /etc/dnf.repos.d/hashicorp.repo \
     && dnf install -y terraform \
     && dnf clean all
 
