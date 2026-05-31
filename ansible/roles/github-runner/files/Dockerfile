@@ -1,5 +1,5 @@
 # SRE Optimized GitHub Actions Runner (Podman-native)
-FROM fedora:39
+FROM fedora:45
 
 # 1. Install core dependencies
 # We use Fedora for better Podman support and newer packages
